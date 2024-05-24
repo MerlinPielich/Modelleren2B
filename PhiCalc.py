@@ -24,10 +24,10 @@ C_m = 8.66
 C_D = 1.17
 
 # cylinder diameter: ?
-D = 1
+D = 5
 
-# Horizontal bottom: ?
-H = 1
+# Horizontal bottom: < 50
+H = 50
 
 
 def calc_phi(z, x, t):
