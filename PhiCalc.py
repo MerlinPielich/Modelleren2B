@@ -5,13 +5,28 @@ Created on Fri May 24 13:52:55 2024
 @author: Maris
 """
 import numpy as np
+# (radian) frequency: ?
 sigma = 1
+
+# wavenumber: ?
 kappa = 1
+
+# wave amplitude: ?
 a = 1
-rho = 1
-C_m = 1
-C_D = 1
+
+# water pressure: 1025 kg/m^2
+rho = 1025
+
+# inertia coefficient: 1+C_a ~ 8.66
+C_m = 8.66
+
+# drag coefficient: 1.17
+C_D = 1.17
+
+# cylinder diameter: ?
 D = 1
+
+# Horizontal bottom: ?
 H = 1
 
 
