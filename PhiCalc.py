@@ -5,11 +5,16 @@ Created on Fri May 24 13:52:55 2024
 @author: Maris
 """
 import numpy as np
+from scipy import optimize
+
 # (radian) frequency: ?
 sigma = 1
 
-# wavenumber: ?
-kappa = 1
+# wavelength: ?
+lamda = 1
+
+# wavenumber: 2pi/wavelength lambda
+kappa = 2 * np.pi / lamda
 
 # wave amplitude: ?
 a = 1
@@ -58,3 +63,31 @@ def diff_u(z, t):
     diff_u = - sigma ** 2 * a * np.cosh(kappa * (z + H)) / \
         np.sinh(kappa*H) * np.sin(sigma * t)
     return diff_u
+
+
+def f(x):
+    return np.cosh(x)*np.cos(x)+1
+
+
+def find_roots(func, n, a, b):
+    zeros = [[[], [], []]for i in range(n)]
+    stepsize = (b-a)/n
+    for i in range(n):
+        A = a + stepsize*i
+        B = a + stepsize * (i+1)
+        zeros[i][0] = A
+        zeros[i][1] = B
+        if func(A) == 0 or func(B) == 0 \
+                or (func(A) < 0 and func(B) > 0) \
+                or (func(B) < 0 and func(A) > 0):
+            zeros[i][2] = optimize.bisect(func, A, B)
+        else:
+            zeros[i][2] = None
+    return zeros
+
+
+def q(x):
+    return np.sin(x)
+
+
+print(find_roots(f, 100, 0, 100))
