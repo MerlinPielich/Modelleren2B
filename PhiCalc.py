@@ -91,3 +91,21 @@ def q(x):
 
 
 print(find_roots(f, 100, 0, 100))
+
+
+def func(x):
+    return x ** 5
+
+
+def simps_rule(func, a, b, n):
+    h = (b-a)/n
+    step = a
+    res = 0
+    for i in range(n):
+        step = a + i * h
+        res += func(step) + 4*func((step + step + h)/2) + func(step + h)
+    res = (h/6) * res
+    return res
+
+# test, answer should be 12
+# print(simps_rule(func, 0, 2, 1))
