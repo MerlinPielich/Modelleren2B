@@ -49,21 +49,21 @@ def diff_phi(z, x, t):
     return d_phi
 
 
-# Wave force function/morrison equation
+# Wave force function/morrison equation. Use this one to calculate wave forcing
 def wave_force(z, t):
     F = (np.pi / 4 * rho * C_m * D ** 2 * diff_u(z, t)) + \
         1/2 * rho * C_D * D * u(z, t) * np.abs(u(z, t))
     return F
 
 
-# Function that calculates u.
+# Function that calculates u. This is simply a function that is used in the wave forcing function
 def u(z, t):
     u = sigma * a * np.cosh(kappa * (z + H)) / \
         np.sinh(kappa * H) * np.cos(sigma * t)
     return u
 
 
-# function for the differential of u in z?
+# function for the differential of u in z. This is simply a function that is used in the wave forcing function
 def diff_u(z, t):
     diff_u = - sigma ** 2 * a * np.cosh(kappa * (z + H)) / \
         np.sinh(kappa*H) * np.sin(sigma * t)
@@ -97,6 +97,7 @@ def test_q(x):
     return np.sin(x)
 
 
+# lambda's for the beam equation
 print(find_roots(f, 100, 0, 100))
 
 
