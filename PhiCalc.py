@@ -58,9 +58,17 @@ def diff_phi(z, x, t):
 
 
 # Wave force function/morrison equation. Use this one to calculate wave forcing
-def wave_force(z, t):
+def wave_force(z, rho, t):
     F = (np.pi / 4 * rho * C_m * D ** 2 * diff_u(z, t)) + \
         1/2 * rho * C_D * D * u(z, t) * np.abs(u(z, t))
+    return F
+
+# wave force function
+def wave_force_var_dens(z, rho, t):
+    F = [[] for i in range(len(rho))]
+    for j in range(len(rho)):
+        F[j] = (np.pi / 4 * rho[j] * C_m * D ** 2 * diff_u(z, t)) + \
+        1/2 * rho[j] * C_D * D * u(z, t) * np.abs(u(z, t))
     return F
 
 # Function that calculates u. This is simply a function that is used in the wave forcing function
@@ -83,9 +91,17 @@ def diff_u(z, t):
 force = np.empty((len(z),len(t)))
 for i in range(len(z)):
     for k in range(len(t)):
-        force[i][k] = wave_force(i,k)
+        force[i][k] = wave_force(i,rho,k)
 
+end = 1500
+step2 = 1
+rho = np.arange(1025, end+1, step2)
 
+force_var_dens = np.empty((len(z),len(t), len(rho)))
+for i in range(len(z)):
+    for k in range(len(t)):
+        for y in range(len(rho)):
+            force_var_dens[i][k] = wave_force(i,rho[y],k)
 
 # Function of which the zeros have to be found.
 def f(x):
