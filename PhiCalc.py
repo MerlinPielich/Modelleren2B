@@ -149,5 +149,17 @@ def simps_rule(func, a, b, n):
     res = (h/6) * res
     return res
 
+def func1(x,t):
+    return f(x,t)*W_n(x)
+
+def Q_n(t,n):
+    return simps_rule(func, 0, l, n)
+
+def func1(x):
+    return Q_n(x)*np.sin(w_n)*(t-x)
+
+def small_q(t, n):
+    q_n = (1/(rho*A*b*w_n))*simps_rule()
+
 # test, answer should be 12
 # print(simps_rule(test_func, 0, 2, 1))
