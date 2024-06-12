@@ -8,16 +8,16 @@ import numpy as np
 from scipy import optimize
 
 # (Radian) frequency: ?
-sigma = 1
+sigma = (2*np.pi)/5.7
 
-# Wavelength: ?
-lamda = 1
+# Wavelength: 33.8
+lamda = 33.8
 
 # Wavenumber: 2pi/wavelength lambda
 kappa = 2 * np.pi / lamda
 
-# Wave amplitude: ?
-a = 1
+# Wave amplitude: during storm maximal wave height 1.5
+a = 1.5
 
 # Water pressure: 1025 kg/m^2
 rho = 1025
@@ -34,6 +34,14 @@ D = 5
 # Horizontal bottom: < 50
 H = 50
 
+# z positions put into a vector z
+step = .1
+z = np.arange(-a, a + .00001, step)
+# print(z)
+
+# t time steps
+t = np.arange(0,61,1)
+# print(t)
 
 # Function that calculates phi
 def calc_phi(z, x, t):
@@ -55,7 +63,6 @@ def wave_force(z, t):
         1/2 * rho * C_D * D * u(z, t) * np.abs(u(z, t))
     return F
 
-
 # Function that calculates u. This is simply a function that is used in the wave forcing function
 def u(z, t):
     u = sigma * a * np.cosh(kappa * (z + H)) / \
@@ -68,6 +75,16 @@ def diff_u(z, t):
     diff_u = - sigma ** 2 * a * np.cosh(kappa * (z + H)) / \
         np.sinh(kappa*H) * np.sin(sigma * t)
     return diff_u
+
+
+
+
+# find force at wave position z at time t.
+force = np.empty((len(z),len(t)))
+for i in range(len(z)):
+    for k in range(len(t)):
+        force[i][k] = wave_force(i,k)
+
 
 
 # Function of which the zeros have to be found.
@@ -98,7 +115,7 @@ def test_q(x):
 
 
 # lambda's for the beam equation
-print(find_roots(f, 100, 0, 100))
+zeros = find_roots(f, 100, 0, 100)
 
 
 def test_func(x):
