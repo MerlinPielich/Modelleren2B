@@ -85,8 +85,6 @@ def diff_u(z, t):
     return diff_u
 
 
-
-
 # find force at wave position z at time t.
 force = np.empty((len(z),len(t)))
 for i in range(len(z)):
@@ -139,7 +137,7 @@ def test_func(x):
 
 
 # Application of simpson's rule to find the integral of a function.
-def simps_rule(func, a, b, n):
+def simps_rule(func, a, b, n=100):
     h = (b-a)/n
     step = a
     res = 0
@@ -149,17 +147,31 @@ def simps_rule(func, a, b, n):
     res = (h/6) * res
     return res
 
+# Z_n: The space dependent part of the SOV of the beam equation
+def Z_n(x: float, lambda_n:float = 1.0, l: float = 50.0, C_n: float = 1.0):
+    term1 = np.cos(lambda_n * x) - np.cosh(lambda_n * x)
+    term2 = (np.cos(lambda_n * l) - np.cosh(lambda_n * l)) / (np.sin(lambda_n * l) - np.sinh(lambda_n * l))
+    term3 = np.sin(lambda_n * x) - np.sinh(lambda_n * x)
+    return C_n * (term1 - term2 * term3)
+
+
 def func1(x,t):
-    return f(x,t)*W_n(x)
+    return f(x,t)*Z_n(x,lambda_n=1.0)
 
-def Q_n(t,n):
-    return simps_rule(func, 0, l, n)
+def Q_n(t:float, n:int, l:float = 50):
+    return simps_rule(func1(t=t), 0, l, n)
 
-def func1(x):
-    return Q_n(x)*np.sin(w_n)*(t-x)
+def func2(x,t,lambda_n:float):
+    return Q_n(x)*np.sin(lambda_n*(t-x))
 
-def small_q(t, n):
-    q_n = (1/(rho*A*b*w_n))*simps_rule()
+def func_b(Z_n,lambda_n):
+    simps_rule((Z_n(lambda_n=lambda_n))**2, a=0, b=H)
+
+def small_q(t,lambda_n):
+    q_n = (1/(rho*A*func_b(Z_n,lambda_n)*lambda_n))*simps_rule(func2(t=t,lambda_n=lambda_n))
+    return q_n
+
+# def Z_total 
 
 # test, answer should be 12
 # print(simps_rule(test_func, 0, 2, 1))
