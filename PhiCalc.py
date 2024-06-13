@@ -6,12 +6,17 @@ Created on Fri May 24 13:52:55 2024
 """
 import numpy as np
 from scipy import optimize
+import csv
+import decimal
+import math 
 
 # (Radian) frequency: ?
 sigma = (2*np.pi)/5.7
 
 # Wavelength: 33.8
 lamda = 33.8
+
+#
 
 # Wavenumber: 2pi/wavelength lambda
 kappa = 2 * np.pi / lamda
@@ -30,6 +35,9 @@ C_D = 1.17
 
 # Cylinder diameter: ?
 D = 5
+
+#Cilinder surface intersection
+A = math.pi * (D/2)**2
 
 # Horizontal bottom: < 50
 H = 50
@@ -147,8 +155,18 @@ def simps_rule(func, a, b, n=100):
     res = (h/6) * res
     return res
 
+def simps_rule_lambda_n(func, a, b,lambda_n, n=100,*args):
+    h = (b-a)/n
+    step = a
+    res = 0
+    for i in range(n):
+        step = a + i * h
+        res += func(step) + 4*func((step + step + h)/2,lambda_n,*args) + func(step + h,lambda_n,*args)
+    res = (h/6) * res
+    return res
+
 # Z_n: The space dependent part of the SOV of the beam equation
-def Z_n(x: float, lambda_n:float = 1.0, l: float = 50.0, C_n: float = 1.0):
+def Z_n(x: float, lambda_n:float = 1.0, l: float = 50.0, C_n: float = 1.0,*args):
     term1 = np.cos(lambda_n * x) - np.cosh(lambda_n * x)
     term2 = (np.cos(lambda_n * l) - np.cosh(lambda_n * l)) / (np.sin(lambda_n * l) - np.sinh(lambda_n * l))
     term3 = np.sin(lambda_n * x) - np.sinh(lambda_n * x)
@@ -167,46 +185,50 @@ def find_lambdas(func, n, a, b):
             zeros.append(optimize.bisect(func, A, B))
     return zeros
 
-print(len(find_lambdas(frequency_equation, 1000, 0, 2)))
+##print(len(find_lambdas(frequency_equation, 1000, 0, 2)))
 
 
-def func1(x,t):
+
+
+
+def func1(x,t,*args):
     return f(x,t)*Z_n(x,lambda_n=1.0)
 
-def Q_n(t:float, n:int, l:float = 50):
+def Q_n(t:float, n:int, l:float = 50,*args):
     return simps_rule(func1(t=t), 0, l, n)
 
-def func2(x,t,lambda_n:float):
+def func2(x,t,lambda_n:float,*args):
     return Q_n(x)*np.sin(lambda_n*(t-x))
 
-def func_b(Z_n,lambda_n):
-    simps_rule((Z_n(lambda_n=lambda_n))**2, a=0, b=H)
+def func_b(Z_n,lambda_n,*args):
+    simps_rule_lambda_n((Z_n)**2,lambda_n=lambda_n, a=0, b=H)
 
-def small_q(t,lambda_n):
-    q_n = (1/(rho*A*func_b(Z_n,lambda_n)*lambda_n))*simps_rule(func2(t=t,lambda_n=lambda_n))
+def small_q(t,lambda_n,*args):
+    q_n = (1/(rho*A*func_b(Z_n,lambda_n)*lambda_n))*simps_rule_lambda_n(func2(t=t,lambda_n=lambda_n))
     return q_n
 
-def w(x,t,lambda_list:list):
+def w(x,t,lambda_list:list,*args):
     w = 0
     n = len(lambda_list)
     for lambda_n in lambda_list:
-        w += Z_n(x=x,lambda_n=lambda_n) * small_q(t=t)
+        w += Z_n(x=x,lambda_n=lambda_n) * small_q(t=t,lambda_n = lambda_n)
     return w
 
 
-def BEQ(t_end:float = 30,dt:float = 0.01,l:float = 150,dl:float = 1.0):
+def BEQ(t_end:float = 30,dt:float = 0.01,l:int = 150,dl:float = 1.0):
     lambda_list = find_lambdas(frequency_equation, 1000, 0, 2)
     n = len(lambda_list)
     Z = []
     z_new = 0
+    t = 0
 
     #structure of output
     #[ [time1,[ [x1,z1], [x2,z2],...  ]],[time2,[ [x1,z1], [x2,z2],...  ]],...  ]
 
-    while t < t_end:
+    while t <= t_end:
         z_x = []
 
-        for x in range(0,l,dl):
+        for x in np.arange(0,l,dl):
             #main block
 
 
@@ -214,18 +236,30 @@ def BEQ(t_end:float = 30,dt:float = 0.01,l:float = 150,dl:float = 1.0):
             #this part is extremely inefficient, gotta look at this later.
             #Right now it calculates w for every x and t whilst
             #this is only required for a specific t.
-            z_new = w(x,t)
+            z_new = w(x,t,lambda_list)
 
             #z_x is a list with the w for different points on the beam
             z_x.append([x,z_new])
 
             #end block: time step
-            t += dt
+        t += dt
 
     
         z_t = [t,z_x]
             
         z.append(z_t)
+
+    return(z)
+
+
+z = BEQ()
+filename = "results.csv"
+with open(filename, 'w') as csvfile:
+    # creating a csv dict writer object
+    writer = csv.DictWriter(csvfile)
+ 
+    # writing data rows
+    writer.writerows(z)
             
     
     
@@ -233,7 +267,6 @@ def BEQ(t_end:float = 30,dt:float = 0.01,l:float = 150,dl:float = 1.0):
 
 # test, answer should be 12
 # print(simps_rule(test_func, 0, 2, 1))
-
 
 
 
