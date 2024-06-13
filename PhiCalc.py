@@ -154,7 +154,7 @@ def Z_n(x: float, lambda_n:float = 1.0, l: float = 50.0, C_n: float = 1.0):
     term3 = np.sin(lambda_n * x) - np.sinh(lambda_n * x)
     return C_n * (term1 - term2 * term3)
 
-def frequency_equation(x:float,l:float = 150):
+def frequency_equation(x:float,l:float = 150.0) -> float:
     return np.cosh(x*l)*np.cos(x*l)+1
 
 def find_lambdas(func, n, a, b):
@@ -167,7 +167,7 @@ def find_lambdas(func, n, a, b):
             zeros.append(optimize.bisect(func, A, B))
     return zeros
 
-print(len(find_lambdas(frequency_equation, 100, 0, 100)))
+print(len(find_lambdas(frequency_equation, 1000, 0, 2)))
 
 
 def func1(x,t):
@@ -186,29 +186,47 @@ def small_q(t,lambda_n):
     q_n = (1/(rho*A*func_b(Z_n,lambda_n)*lambda_n))*simps_rule(func2(t=t,lambda_n=lambda_n))
     return q_n
 
-def Z_total(x,t,n,lambda_n):
-    z = 0
-    for i in range(1,n+1):
-        z += Z_n(x=x,lambda_n=lambda_n) * small_q(t=t)
-    return z
+def w(x,t,lambda_list:list):
+    w = 0
+    n = len(lambda_list)
+    for lambda_n in lambda_list:
+        w += Z_n(x=x,lambda_n=lambda_n) * small_q(t=t)
+    return w
 
 
 def BEQ(t_end:float = 30,dt:float = 0.01,l:float = 150,dl:float = 1.0):
-    lambda_list = find_lambdas(f, 100, 0, 100)
+    lambda_list = find_lambdas(frequency_equation, 1000, 0, 2)
     n = len(lambda_list)
     Z = []
     z_new = 0
-    
-    while t < t_end:
-        #main block
-        
-        z_new = Z_total()
-            
 
-        #end block: time step and z add
-        t += dt
-        z.append()
-        
+    #structure of output
+    #[ [time1,[ [x1,z1], [x2,z2],...  ]],[time2,[ [x1,z1], [x2,z2],...  ]],...  ]
+
+    while t < t_end:
+        z_x = []
+
+        for x in range(0,l,dl):
+            #main block
+
+
+
+            #this part is extremely inefficient, gotta look at this later.
+            #Right now it calculates w for every x and t whilst
+            #this is only required for a specific t.
+            z_new = w(x,t)
+
+            #z_x is a list with the w for different points on the beam
+            z_x.append([x,z_new])
+
+            #end block: time step
+            t += dt
+
+    
+        z_t = [t,z_x]
+            
+        z.append(z_t)
+            
     
     
     
