@@ -154,6 +154,21 @@ def Z_n(x: float, lambda_n:float = 1.0, l: float = 50.0, C_n: float = 1.0):
     term3 = np.sin(lambda_n * x) - np.sinh(lambda_n * x)
     return C_n * (term1 - term2 * term3)
 
+def frequency_equation(x:float,l:float = 150):
+    return np.cosh(x*l)*np.cos(x*l)+1
+
+def find_lambdas(func, n, a, b):
+    zeros = []
+    stepsize = (b-a)/n
+    for i in range(n):
+        A = a + stepsize*i
+        B = a + stepsize * (i+1)
+        if func(A)*func(B) < 0:
+            zeros.append(optimize.bisect(func, A, B))
+    return zeros
+
+print(len(find_lambdas(frequency_equation, 100, 0, 100)))
+
 
 def func1(x,t):
     return f(x,t)*Z_n(x,lambda_n=1.0)
@@ -171,7 +186,44 @@ def small_q(t,lambda_n):
     q_n = (1/(rho*A*func_b(Z_n,lambda_n)*lambda_n))*simps_rule(func2(t=t,lambda_n=lambda_n))
     return q_n
 
-# def Z_total 
+def Z_total(x,t,n,lambda_n):
+    z = 0
+    for i in range(1,n+1):
+        z += Z_n(x=x,lambda_n=lambda_n) * small_q(t=t)
+    return z
+
+
+def BEQ(t_end:float = 30,dt:float = 0.01,l:float = 150,dl:float = 1.0):
+    lambda_list = find_lambdas(f, 100, 0, 100)
+    n = len(lambda_list)
+    Z = []
+    z_new = 0
+    
+    while t < t_end:
+        #main block
+        
+        z_new = Z_total()
+            
+
+        #end block: time step and z add
+        t += dt
+        z.append()
+        
+    
+    
+    
 
 # test, answer should be 12
 # print(simps_rule(test_func, 0, 2, 1))
+
+
+
+
+
+
+
+
+
+
+
+
