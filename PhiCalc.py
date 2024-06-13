@@ -154,7 +154,7 @@ def simps_rule(func, a, b, n=100):
     res = 0
     for i in range(n):
         step = a + i * h
-        res += func(step) + 4*func((step + step + h)/2) + func(step + h)
+        res += np.abs(func(step) + 4*func((step + step + h)/2) + func(step + h))
     res = (h/6) * res
     return res
 
@@ -164,20 +164,23 @@ def simps_rule_lambda_n(func, a, b,lambda_n, n=100,*args):
     res = 0
     for i in range(n):
         step = a + i * h
-        res += func(step, lambda_n, *args) + 4*func((step + step + h)/2,lambda_n, *args) + func(step + h,lambda_n, *args)
-        print("res simps_rule_lambda_n = ", res)
+        res += np.abs(func(step, lambda_n, *args) + 4*func((step + step + h)/2,lambda_n, *args) + func(step + h,lambda_n, *args))
+#        print("res simps_rule_lambda_n = ", res)
     res = (h/6) * res
     return res
 
 def simps_rule_lambda_n_t(func, a, b,lambda_n, t, n=100,*args):
+#    print("b = ",b, " a = ", a, " lambda_n = ", lambda_n, " t = ", t, " n = ", n)
     h = (b-a)/n
+#    print(h)
     step = a
     res = 0
     for i in range(n):
         step = a + i * h
-        res = res + func(step, t, lambda_n, *args) + 4*func((step + step + h)/2, t, lambda_n, *args) + func(step + h, t, lambda_n, *args)
-        print("res simps_rule_lambda_n_t = ", res)
+        res += np.abs(func(step, t, lambda_n, *args) + 4*func((step + step + h)/2, t, lambda_n, *args) + func(step + h, t, lambda_n, *args))
+#        print("res simps_rule_lambda_n_t = ", res)
     res = (h/6) * res
+    #print("res = ", res)
     return res
 
 # Z_n: The space dependent part of the SOV of the beam equation
@@ -187,7 +190,7 @@ def Z_n(x: float, lambda_n:float = 1.0, C_n: float = 1.0,*args):
     term3 = np.sin(lambda_n * x) - np.sinh(lambda_n * x)
     return C_n * (term1 - term2 * term3)
 
-print(Z_n(1))
+#print(Z_n(1))
 
 def Z_n_sq(x: float, lambda_n:float = 1.0, C_n: float = 1.0,*args):
     term1 = np.cos(lambda_n * x) - np.cosh(lambda_n * x)
@@ -212,74 +215,81 @@ def find_lambdas(func, n, a, b):
 
 
 
-def func1(x,t,lambda_n,rho = rho,*args):
+def func1(x,t,lambda_n,rho = rho[0],*args):
     return wave_force(x, rho,t)*Z_n(x,lambda_n)
 
 def Q_n(t:float, lambda_n, *args):
     return simps_rule_lambda_n_t(func1, 0, l, lambda_n, t)
 
 def func2(tau, t,lambda_n:float,*args):
+#    print("func2 left part: Q_n(tau, lambda_n) = ", Q_n(tau, lambda_n))
+#    print("func2 right part: ", np.sin(lambda_n*(t-tau)))
     return Q_n(tau, lambda_n)*np.sin(lambda_n*(t-tau))
 
 def func_b(Z_n,lambda_n,*args):
     return simps_rule_lambda_n(Z_n_sq, a=0, b=H, lambda_n=lambda_n)
 
-def small_q(t,lambda_n,*args):
-    q_n = (1/(rho[0]*A*func_b(Z_n,lambda_n)*lambda_n))*simps_rule_lambda_n_t(func2, a=0, b=t, lambda_n=lambda_n, t=t)
+def small_q(t_step,lambda_n,*args):
+    q_n = (1/(rho[0]*A*func_b(Z_n,lambda_n)*lambda_n))*simps_rule_lambda_n_t(func2, a=0, b=t_step, lambda_n=lambda_n, t=t_step)
+#    print("left part small_q", (1/(rho[0]*A*func_b(Z_n,lambda_n)*lambda_n)))
+#    print("right part small_q", simps_rule_lambda_n_t(func2, a=0, b=t_step, lambda_n=lambda_n, t=t_step))
     return q_n
 
-print(small_q(1, 1))
+#print(small_q(1, 1))
 
 def w(x,t,lambda_list:list,*args):
     w = 0
     n = len(lambda_list)
     count = 1
     for lambda_n in lambda_list:
-        w += Z_n(x=x,lambda_n=lambda_n) * small_q(t=t,lambda_n = lambda_n)
-        print("w = ",w)
-        print("w lambda_n number = ", count)
+        w += Z_n(x=x,lambda_n=lambda_n) * small_q(t_step=t,lambda_n = lambda_n)
+#        print("Z_n = ", Z_n(x=x, lambda_n=lambda_n))
+#        print("small q = ", small_q(t_step=t,lambda_n=lambda_n))
+#        print("w = ",w)
+#        print("w lambda_n number = ", count)
         count += 1
-    print("w =", w)
+#    print("w =", w)
     return w
 
 
-def BEQ(t_end:float = 30,dt:float = 1,l:int = 150,dl:float = 1.0):
-    lambda_list = find_lambdas(frequency_equation, 1000, 0, 1)
-    print(len(lambda_list))
+def BEQ(t_end:float = 30,dt:float = 1,l:int = 150,dl:float = 10):
+    lambda_list = find_lambdas(frequency_equation, 100, 0, .1)
+    print("amount of lambdas = ",len(lambda_list))
     n = len(lambda_list)
-    Z = []
+    z = []
     z_new = 0
-    t = 0
+    t_step = 0
 
     #structure of output
     #[ [time1,[ [x1,z1], [x2,z2],...  ]],[time2,[ [x1,z1], [x2,z2],...  ]],...  ]
 
-    while t <= t_end:
-        print(t)
+    while t_step <= t_end:
+        print("t_step = ", t_step)
         z_x = []
 
         for x in np.arange(0,l,dl):
             #main block
-            print("x = ", x )
+#            print("x = ", x )
 
 
             #this part is extremely inefficient, gotta look at this later.
             #Right now it calculates w for every x and t whilst
             #this is only required for a specific t.
-            z_new = w(x,t,lambda_list)
-            print("z_new done")
+            z_new = w(x,t_step,lambda_list)
+#            print("z_new done")
             #z_x is a list with the w for different points on the beam
             z_x.append([x,z_new])
 
             #end block: time step
-        t += dt
+        t_step += dt
 
     
         z_t = [t,z_x]
-        print(z_t)
+#        print("z_t = ", z_t)
             
         z.append(z_t)
-
+#        print("z = ", z)
+    print("while loop done :D")
     return(z)
 
 
