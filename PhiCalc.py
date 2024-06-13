@@ -162,8 +162,6 @@ def simps_rule_lambda_n(func, a, b,lambda_n, n=100,*args):
     h = (b-a)/n
     step = a
     res = 0
-    print("initialised res = ", res)
-    return
     for i in range(n):
         step = a + i * h
         res += func(step, lambda_n, *args) + 4*func((step + step + h)/2,lambda_n, *args) + func(step + h,lambda_n, *args)
@@ -177,7 +175,7 @@ def simps_rule_lambda_n_t(func, a, b,lambda_n, t, n=100,*args):
     res = 0
     for i in range(n):
         step = a + i * h
-        res += func(step, t, lambda_n, *args) + 4*func((step + step + h)/2, t, lambda_n, *args) + func(step + h, t, lambda_n, *args)
+        res = res + func(step, t, lambda_n, *args) + 4*func((step + step + h)/2, t, lambda_n, *args) + func(step + h, t, lambda_n, *args)
         print("res simps_rule_lambda_n_t = ", res)
     res = (h/6) * res
     return res
@@ -227,7 +225,7 @@ def func_b(Z_n,lambda_n,*args):
     return simps_rule_lambda_n(Z_n_sq, a=0, b=H, lambda_n=lambda_n)
 
 def small_q(t,lambda_n,*args):
-    q_n = (1/(rho*A*func_b(Z_n,lambda_n)*lambda_n))*simps_rule_lambda_n_t(func2, a=0, b=t, lambda_n=lambda_n, t=t)
+    q_n = (1/(rho[0]*A*func_b(Z_n,lambda_n)*lambda_n))*simps_rule_lambda_n_t(func2, a=0, b=t, lambda_n=lambda_n, t=t)
     return q_n
 
 print(small_q(1, 1))
