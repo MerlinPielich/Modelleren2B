@@ -9,6 +9,13 @@ from scipy import optimize
 import csv
 import decimal
 import math 
+import scipy
+import scipy.optimize as optimize
+import scipy.integrate as integrate
+import numpy as np
+import sympy as sp
+
+
 
 # (Radian) frequency: ?
 sigma = (2*np.pi)/5.7
@@ -140,8 +147,8 @@ def test_q(x):
 
 
 # lambda's for the beam equation
-zeros = find_roots(f, 100, 0, 100)
-
+# zeros = find_roots(f, 100, 0, 10)
+# print(zeros)
 
 def test_func(x):
     return x ** 5
@@ -183,12 +190,12 @@ def simps_rule_lambda_n_t(func, a, b,lambda_n, t, n=100,*args):
     #print("res = ", res)
     return res
 
-# Z_n: The space dependent part of the SOV of the beam equation
-def Z_n(x: float, lambda_n:float = 1.0, C_n: float = 1.0,*args):
-    term1 = np.cos(lambda_n * x) - np.cosh(lambda_n * x)
-    term2 = (np.cos(lambda_n * l) - np.cosh(lambda_n * l)) / (np.sin(lambda_n * l) - np.sinh(lambda_n * l))
-    term3 = np.sin(lambda_n * x) - np.sinh(lambda_n * x)
-    return C_n * (term1 - term2 * term3)
+# # Z_n: The space dependent part of the SOV of the beam equation
+# def Z_n(x: float, lambda_n:float = 1.0, C_n: float = 1.0,*args):
+#     term1 = np.cos(lambda_n * x) - np.cosh(lambda_n * x)
+#     term2 = (np.cos(lambda_n * l) - np.cosh(lambda_n * l)) / (np.sin(lambda_n * l) - np.sinh(lambda_n * l))
+#     term3 = np.sin(lambda_n * x) - np.sinh(lambda_n * x)
+#     return C_n * (term1 - term2 * term3)
 
 #print(Z_n(1))
 
@@ -235,6 +242,17 @@ def small_q(t_step,lambda_n,*args):
 #    print("right part small_q", simps_rule_lambda_n_t(func2, a=0, b=t_step, lambda_n=lambda_n, t=t_step))
     return q_n
 
+# def a_t():
+
+    
+
+#     expression = C*(np.cos(lambda_n*z)*np.sin(lambda_n*l) - np.cos(lambda_n*z)*np.sinh(lambda_n*l) 
+#                 - np.cosh(lambda_n*z)*np.sin(lambda_n*l) + np.cosh(lambda_n*z)*np.sinh(lambda_n*l) 
+#                 - np.cos(lambda_n*l)*np.sin(lambda_n*z) + np.cos(lambda_n*l)*np.sinh(lambda_n*z) 
+#                 + np.cosh(lambda_n*l)*np.sin(lambda_n*z) 
+#                 - np.cosh(lambda_n*l)*np.sinh(lambda_n*z))*np.cosh(k(H + z))/(np.sin(lambda_n*l) 
+#                 - np.sinh(lambda_n*l))
+
 #print(small_q(1, 1))
 
 def w(x,t,lambda_list:list,*args):
@@ -251,66 +269,138 @@ def w(x,t,lambda_list:list,*args):
 #    print("w =", w)
     return w
 
+# Z_n: The space dependent part of the SOV of the beam equation
+def Z_n(lambda_n:float = 1.0, C_n: float = 1.0,*args):
+    z = sp.symbols('z')
+    term1 = sp.cos(lambda_n * z) - sp.cosh(lambda_n * z)
+    term2 = (sp.cos(lambda_n * l) - sp.cosh(lambda_n * l)) / (sp.sin(lambda_n * l) - sp.sinh(lambda_n * l))
+    term3 = sp.sin(lambda_n * z) - sp.sinh(lambda_n * z)
+    return C_n * (term1 - term2 * term3)
 
-def BEQ(t_end:float = 30,dt:float = 1,l:int = 150,dl:float = 10):
+
+def BEQ(t_end:float = 2,dt:float = 1,l:int = 150,dl:float = 10):
     lambda_list = find_lambdas(frequency_equation, 100, 0, .1)
     print("amount of lambdas = ",len(lambda_list))
     n = len(lambda_list)
+    heights = np.arange(0,l,dl)
     z = []
     z_new = 0
     t_step = 0
+    Z_h = 0
+    Z_n_list = []
+    a_t = 0
+    U = []
 
+    #Calculate all the values for the space dependent parts 
+    for lambda_n in lambda_list:
+        Z_n_list.append(Z_n(lambda_n = lambda_n))
+
+    print(f"the first value for Z_n is {Z_n_list[0]}")
+
+
+    #Calculate prelimenary integrals for the space depentent parts of Q
+    a_n = []
+    for lambda_n in lambda_list:
+
+        A = np.pi * rho * C_m * D **2 
+        B = 1/2 * rho * C_D * D 
+
+        ### INERTIA ####
+        # variables used
+        z = sp.symbols('z')
+        # Equation of Z on some lambda_n
+        Z_eq = sp.cos(lambda_n*z) - sp.cosh(lambda_n*z) - (sp.cos(lambda_n*l) - sp.cosh(lambda_n*l))*(sp.sin(lambda_n*z) - sp.sinh(lambda_n*z))/(sp.sin(lambda_n*l) - sp.sinh(lambda_n*l))
+        
+        # u, the velocity vector
+        u = sp.cosh(k*(z + H)) 
+        u_Inertia = u * Z_eq
+
+        # Integrate the u_inertia. It remains constant for t
+        D_inertia_const = sp.integrate(u_Inertia,(z,0,H))
+
+        t = sp.symbols('t')
+
+        D_inertia = A*(sp.sin(sigma*t)/sp.sinh(k*H))*D_inertia_const
+
+        ### DRAG ###
+        # variables used
+        #same
+        u_Drag = u**2 * Z_eq
+
+        # Integrate the u_drag. It remains constant for t
+        D_Drag_const = sp.integrate(u_Drag,(z,0,H))
+
+        # The formula for the Drag part of Q
+        D_Drag = B*(sigma * a * sp.cos(sigma*t)/sp.sinh(k*H))**2 * D_Drag_const
+
+        Q_lamb = D_inertia + D_Drag
+
+
+        # The time depentent part of the decomposition. The entries in a_n (list)
+        # are sympy objects with input t
+        w_n = 1 # TEMP
+        tau = sp.symbols('tau')
+        a_const = 1 / (rho  * A * 1) #TODO!!!
+        a_inside = a_const * sp.Subs( Q_lamb,t,tau) * sp.sin(w_n*(t-tau))
+
+        
+        a_n.append(a_inside)
+
+    print(f"the first a_n is {a_n[0]}")
     #structure of output
     #[ [time1,[ [x1,z1], [x2,z2],...  ]],[time2,[ [x1,z1], [x2,z2],...  ]],...  ]
 
     while t_step <= t_end:
+        U_t = []
+
         print("t_step = ", t_step)
-        z_x = []
+        U_z = 0
 
-        for x in np.arange(0,l,dl):
-            #main block
-#            print("x = ", x )
+        for count,lambda_n in enumerate(lambda_list):
+            # compute formula of Deviation U at time t
+            # U_z is dependent of its height: z
+            a_lambda_t = a_n[count]
+            a_lambda = float(sp.integrate(a_lambda_t,(t,0,t_step)))
 
+            Z_lambda_z = Z_n_list[count]
 
-            #this part is extremely inefficient, gotta look at this later.
-            #Right now it calculates w for every x and t whilst
-            #this is only required for a specific t.
-            z_new = w(x,t_step,lambda_list)
-#            print("z_new done")
-            #z_x is a list with the w for different points on the beam
-            z_x.append([x,z_new])
+            U_z += a_lambda * Z_lambda_z
+        print(f"U_z is {U_z}")
 
-            #end block: time step
-        t_step += dt
+        for h,count in enumerate(heights):
+            U_t.append([h,sp.substitution(U_z,z,h)])
 
+        U.append([t , U_t])
     
-        z_t = [t,z_x]
-#        print("z_t = ", z_t)
+    return U
+
+
+bop = BEQ()
+print(bop)
             
-        z.append(z_t)
-#        print("z = ", z)
-    print("while loop done :D")
-    return(z)
 
 
-z = BEQ()
-filename = "results.csv"
-with open(filename, 'w') as csvfile:
-    # creating a csv dict writer object
-    writer = csv.DictWriter(csvfile)
+
+
+# z = BEQ()
+# filename = "results.csv"
+# with open(filename, 'w') as csvfile:
+#     # creating a csv dict writer object
+#     writer = csv.DictWriter(csvfile)
  
-    # writing data rows
-    writer.writerows(z)
+#     # writing data rows
+#     writer.writerows(z)
             
     
-    
-    
+
 
 # test, answer should be 12
 # print(simps_rule(test_func, 0, 2, 1))
 
 
 
+
+# print(find_lambdas(frequency_equation, 10, 0, .1))
 
 
 
