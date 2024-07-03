@@ -13,9 +13,13 @@ import scipy
 import scipy.optimize as optimize
 import scipy.integrate as integrate
 import numpy as np
-import sympy as sp
-
-
+import scipy as sc
+from scipy import integrate
+from itertools import accumulate
+from sympy.utilities.lambdify import lambdify, implemented_function
+from operator import add
+#Helpt dit?
+def lift2(h, f, g): return lambda z: h(f(z), g(z))
 
 # (Radian) frequency: ?
 sigma = (2*np.pi)/5.7
@@ -190,7 +194,7 @@ def simps_rule_lambda_n_t(func, a, b,lambda_n, t, n=100,*args):
     #print("res = ", res)
     return res
 
-# # Z_n: The space dependent part of the SOV of the beam equation
+# # Z_n: The npace dependent part of the SOV of the beam equation
 # def Z_n(x: float, lambda_n:float = 1.0, C_n: float = 1.0,*args):
 #     term1 = np.cos(lambda_n * x) - np.cosh(lambda_n * x)
 #     term2 = (np.cos(lambda_n * l) - np.cosh(lambda_n * l)) / (np.sin(lambda_n * l) - np.sinh(lambda_n * l))
@@ -269,84 +273,101 @@ def w(x,t,lambda_list:list,*args):
 #    print("w =", w)
     return w
 
-# Z_n: The space dependent part of the SOV of the beam equation
+# Z_n: The npace dependent part of the SOV of the beam equation
 def Z_n(lambda_n:float = 1.0, C_n: float = 1.0,*args):
-    z = sp.symbols('z')
-    term1 = sp.cos(lambda_n * z) - sp.cosh(lambda_n * z)
-    term2 = (sp.cos(lambda_n * l) - sp.cosh(lambda_n * l)) / (sp.sin(lambda_n * l) - sp.sinh(lambda_n * l))
-    term3 = sp.sin(lambda_n * z) - sp.sinh(lambda_n * z)
-    return C_n * (term1 - term2 * term3)
+    
+    return lambda z: C_n * np.cos(lambda_n * z) - np.cosh(lambda_n * z) \
+        - (np.cos(lambda_n * l) - np.cosh(lambda_n * l)) / (np.sin(lambda_n * l) - np.sinh(lambda_n * l)) \
+        * np.sin(lambda_n * z) - np.sinh(lambda_n * z)
 
 
-def BEQ(t_end:float = 2,dt:float = 1,l:int = 150,dl:float = 10):
-    lambda_list = find_lambdas(frequency_equation, 100, 0, .1)
+
+def BEQ(t_end:float = 2,dt:float = 1,l:int = 150,dl:float = 50):
+    
+    lambda_list = find_lambdas(frequency_equation, 100, 0, 0.1)
+    
     print("amount of lambdas = ",len(lambda_list))
+    
     n = len(lambda_list)
+    
     heights = np.arange(0,l,dl)
+    
     z = []
     z_new = 0
-    t_step = 0
+    t_step = 1
     Z_h = 0
     Z_n_list = []
     a_t = 0
     U = []
+    k = kappa
 
-    #Calculate all the values for the space dependent parts 
+    #Calculate all the values for the npace dependent parts 
     for lambda_n in lambda_list:
-        Z_n_list.append(Z_n(lambda_n = lambda_n))
+        Z_n_list.append(lambda z: (Z_n(lambda_n = lambda_n))(z)  )
 
     print(f"the first value for Z_n is {Z_n_list[0]}")
 
-
-    #Calculate prelimenary integrals for the space depentent parts of Q
+    testlist = []
+    #Calculate prelimenary integrals for the npace depentent parts of Q
     a_n = []
+    Q_l = []
     for lambda_n in lambda_list:
 
-        A = np.pi * rho * C_m * D **2 
-        B = 1/2 * rho * C_D * D 
+        A = np.pi * rho[0] * C_m * D **2 
+        B = 1/2 * rho[0] * C_D * D 
 
         ### INERTIA ####
         # variables used
-        z = sp.symbols('z')
         # Equation of Z on some lambda_n
-        Z_eq = sp.cos(lambda_n*z) - sp.cosh(lambda_n*z) - (sp.cos(lambda_n*l) - sp.cosh(lambda_n*l))*(sp.sin(lambda_n*z) - sp.sinh(lambda_n*z))/(sp.sin(lambda_n*l) - sp.sinh(lambda_n*l))
+        Z_eq = lambda z: np.cos(lambda_n*z) - np.cosh(lambda_n*z) - (np.cos(lambda_n*l) - np.cosh(lambda_n*l))*(np.sin(lambda_n*z) - np.sinh(lambda_n*z))/(np.sin(lambda_n*l) - np.sinh(lambda_n*l))
+        
+        print(f"This value for Z_eq is {Z_eq}")
+        print(f"the value for lambda_n is {lambda_n}")
         
         # u, the velocity vector
-        u = sp.cosh(k*(z + H)) 
-        u_Inertia = u * Z_eq
+        u = lambda z: np.cosh(kappa*(z + H)) 
+        u_Inertia = lambda z: math.prod( [ u(z) , Z_eq(z) ] )
+        # print(f"formula for u_inertia is given by {print(u_Inertia)}")
 
         # Integrate the u_inertia. It remains constant for t
-        D_inertia_const = sp.integrate(u_Inertia,(z,0,H))
+        D_inertia_const = integrate.quad(u_Inertia, a = 0, b = 50) 
+        
+        
+        # print(f"The value for D_i_c is  {D_inertia_const}")
 
-        t = sp.symbols('t')
 
-        D_inertia = A*(sp.sin(sigma*t)/sp.sinh(k*H))*D_inertia_const
+        D_inertia = lambda t: A*(np.sin(sigma*t)/np.sinh(k*H))*D_inertia_const[0]
+        print(f"D_inertia formula is given by {D_inertia}")
 
         ### DRAG ###
         # variables used
         #same
-        u_Drag = u**2 * Z_eq
+        u_Drag = lambda z: math.prod( [ u(z)**2, Z_eq(z) ] )
 
         # Integrate the u_drag. It remains constant for t
-        D_Drag_const = sp.integrate(u_Drag,(z,0,H))
+        D_Drag_const = integrate.quad(u_Drag,0,H)
 
+        testlist.append([D_inertia_const,D_Drag_const])
         # The formula for the Drag part of Q
-        D_Drag = B*(sigma * a * sp.cos(sigma*t)/sp.sinh(k*H))**2 * D_Drag_const
+        D_Drag = lambda t: B*(sigma * a * np.cos(sigma*t)/np.sinh(k*H))**2 * D_Drag_const[0]
 
-        Q_lamb = D_inertia + D_Drag
+        Q_lamb = lambda t: D_inertia(t) + D_Drag(t)
+        Q_l.append(Q_lamb)
+        print(f"Q_lamb is {print(Q_lamb)}")
 
 
         # The time depentent part of the decomposition. The entries in a_n (list)
         # are sympy objects with input t
         w_n = 1 # TEMP
-        tau = sp.symbols('tau')
-        a_const = 1 / (rho  * A * 1) #TODO!!!
-        a_inside = a_const * sp.Subs( Q_lamb,t,tau) * sp.sin(w_n*(t-tau))
+        a_const = 1 / (rho[0]  * A * 1) #TODO!!!
+        # a_n.append( lambda tau,t: a_const * Q_lamb(tau) * np.sin(w_n*(t-tau)) )
+        a_n.append( lambda t,n:  a_const*( \
+               np.sin(w_n*t)   * integrate.quad(lambda tau: Q_l[n](tau) * np.cos(w_n * tau), a = 0, b = t)[0] \
+             - np.cos(w_n*t)   * integrate.quad(lambda tau: Q_l[n](tau) * np.sin(w_n * tau), a = 0, b = t)[0]) )
+        # print(f"The a_inside is {a_n[-1](2,1)}")
 
-        
-        a_n.append(a_inside)
 
-    print(f"the first a_n is {a_n[0]}")
+    print(f"the first a_n is {print(a_n[0])}")
     #structure of output
     #[ [time1,[ [x1,z1], [x2,z2],...  ]],[time2,[ [x1,z1], [x2,z2],...  ]],...  ]
 
@@ -354,29 +375,49 @@ def BEQ(t_end:float = 2,dt:float = 1,l:int = 150,dl:float = 10):
         U_t = []
 
         print("t_step = ", t_step)
-        U_z = 0
-
+        
+        U_z = lambda z: 0
+        a_lambda_list = []
+        Z = []
+        
+        print(f"the list of lambda's is {lambda_list}")
+        
         for count,lambda_n in enumerate(lambda_list):
             # compute formula of Deviation U at time t
             # U_z is dependent of its height: z
-            a_lambda_t = a_n[count]
-            a_lambda = float(sp.integrate(a_lambda_t,(t,0,t_step)))
+            # a_lambda_t = lambda tau,t: (a_n[count])(tau,t)
+            print(f"count is given by number {count}")
+            
+            
+            
+            # a_lambda, a_lambda_error =  integrate.quad(a_n[count], a = 0, b = t_step, args=(t_step,))
+            
+            a_lambda = (a_n[count])(t_step,count) 
+            
+            print(f"a_lambda is {a_lambda} ")
 
-            Z_lambda_z = Z_n_list[count]
+            # Z.append(  implemented_function(f'{count}', lambda z: a_lambda * Z_n_list[count] ) )
+               
+            W_n = lambda z: a_lambda * (Z_n_list[count])(z)
+                    
+            U_z = lift2(add, W_n, U_z)
+            
+        # U_z = lambda z: accumulate(Z, operator.add)
+        # lambda z: a_lambda[0] * Z_lambda_z(z) + U_z(z)
+        # print(f"U_z at the top of the beam is is {U_z(H)}")
 
-            U_z += a_lambda * Z_lambda_z
-        print(f"U_z is {U_z}")
+        
+        U.append([t_step,[U_z(h) for h in heights]])    
 
-        for h,count in enumerate(heights):
-            U_t.append([h,sp.substitution(U_z,z,h)])
-
-        U.append([t , U_t])
-    
+        # U.append([t_step , U_t])
+        
+        t_step += dt
+    print(f"THe testlist states: {testlist}")
     return U
 
 
 bop = BEQ()
-print(bop)
+# print(bop)
             
 
 
