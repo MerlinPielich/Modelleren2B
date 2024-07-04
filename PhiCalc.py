@@ -35,7 +35,10 @@ sigma = (2 * np.pi) / 5.7
 # Wavelength: 33.8
 lamda = 33.8
 
-#
+# I
+I = 0.003067962
+# E
+E = 200 * 10**9
 
 # Wavenumber: 2pi/wavelength lambda
 kappa = 2 * np.pi / lamda
