@@ -2,7 +2,7 @@
 """
 Created on Fri May 24 13:52:55 2024
 
-@author: Maris
+@author: Maris en Merli :P
 """
 import csv
 import decimal
@@ -29,6 +29,10 @@ def scalar_multiplication(s, f):
     return lambda z: s * f(z)
 
 
+def multiplication(f, g):
+    return lambda z: math.prod([func(z) for func in [f, g]])
+
+
 # (Radian) frequency: ?
 sigma = (2 * np.pi) / 5.7
 
@@ -39,6 +43,8 @@ lamda = 33.8
 I = 0.003067962
 # E
 E = 200 * 10**9
+# EI
+EI = E * I
 
 # Wavenumber: 2pi/wavelength lambda
 kappa = 2 * np.pi / lamda
@@ -75,6 +81,9 @@ t = np.arange(0, 61, 1)
 
 # l Length of the windmill 150
 l = 150
+
+# density of steel
+rho_steel = 7850
 
 
 # Function that calculates phi
@@ -151,7 +160,7 @@ for k in range(len(t)):
 
 end = 1500
 step2 = 1
-rho = np.arange(1025, end + 1, step2)
+rho = np.arange(1000, end + 1, step2)
 
 force_var_dens = np.empty((len(t), len(z), len(rho)))
 for k in range(len(t)):
@@ -312,10 +321,10 @@ def func_b(Z_n, lambda_n, *args):
 
 @cache
 def small_q(t_step, lambda_n, *args):
-    q_n = (1 / (rho[0] * A * func_b(Z_n, lambda_n) * lambda_n)) * simps_rule_lambda_n_t(
-        func2, a=0, b=t_step, lambda_n=lambda_n, t=t_step
-    )
-    #    print("left part small_q", (1/(rho[0]*A*func_b(Z_n,lambda_n)*lambda_n)))
+    q_n = (
+        1 / (rho_steel * A * func_b(Z_n, lambda_n) * lambda_n)
+    ) * simps_rule_lambda_n_t(func2, a=0, b=t_step, lambda_n=lambda_n, t=t_step)
+    #    print("left part small_q", (1/(rho_steel*A*func_b(Z_n,lambda_n)*lambda_n)))
     #    print("right part small_q", simps_rule_lambda_n_t(func2, a=0, b=t_step, lambda_n=lambda_n, t=t_step))
     return q_n
 
@@ -347,15 +356,18 @@ def w(x, t, lambda_list: list, *args):
 
 # * The function to caculate the space dependent part of the SOV
 @cache
-def Z_n(lambda_n: float = 1.0, C_n: float = 1.0, *args):
+def Z_n(lambda_n: float = 1.0, *args):
+    wn = lambda_n * l
 
-    return lambda z, C_n=C_n, lambda_n=lambda_n: C_n * (
-        np.cos(lambda_n * z)
-        - np.cosh(lambda_n * z)
-        - (np.cos(lambda_n * l) - np.cosh(lambda_n * l))
-        / (np.sin(lambda_n * l) - np.sinh(lambda_n * l))
-        * np.sin(lambda_n * z)
-        - np.sinh(lambda_n * z)
+    C_n = -(np.cos(lambda_n * l) - np.cosh(lambda_n * l)) / (
+        np.sin(lambda_n * l) - np.sinh(lambda_n * l)
+    )
+
+    return (
+        lambda z: (1 / 2)
+        * ((1 - C_n) * np.exp(lambda_n * z) + (1 + C_n) * np.exp(-lambda_n * z))
+        + C_n * np.sin(lambda_n * z)
+        + np.cos(lambda_n * z)
     )
 
 
@@ -366,16 +378,20 @@ def Q_n(lambda_n, A, B):
     k = kappa
 
     # * u is the function for the wave forcing. Here initialized as lambda function
-    u = lambda z: np.cosh(kappa * (z + H)) if z <= 50 else 0
+    u = lambda z: (
+        (np.exp(kappa * (z + H)) + np.exp(-kappa * (z + H))) / 2 if z <= 50 else 0
+    )
 
     # * Z_eq is the function for this lambda
-    Z_eq = (
-        lambda z: np.cos(lambda_n * z)
-        - np.cosh(lambda_n * z)
-        - (np.cos(lambda_n * l) - np.cosh(lambda_n * l))
-        * (np.sin(lambda_n * z) - np.sinh(lambda_n * z))
-        / (np.sin(lambda_n * l) - np.sinh(lambda_n * l))
-    )
+    Z_eq = Z_n(lambda_n=lambda_n)
+
+    # (
+    #     lambda z: np.cos(lambda_n * z)
+    #     - np.cosh(lambda_n * z)
+    #     - (np.cos(lambda_n * l) - np.cosh(lambda_n * l))
+    #     * (np.sin(lambda_n * z) - np.sinh(lambda_n * z))
+    #     / (np.sin(lambda_n * l) - np.sinh(lambda_n * l))
+    # )
 
     # * ## Inertia Calculations ## * #
 
@@ -386,7 +402,9 @@ def Q_n(lambda_n, A, B):
     D_inertia_const = integrate.quad(u_Inertia, a=0, b=H)
 
     # * The inertia itself is dependent on t. So it is put in a lambda function
-    D_inertia = lambda t: A * (np.sin(sigma * t) / np.sinh(k * H)) * D_inertia_const[0]
+    D_inertia = lambda t: A * (
+        np.sin(sigma * t) / ((np.exp(k * H) - np.exp(-k * H)) / 2) * D_inertia_const[0]
+    )
 
     # * ## Drag Calculations ## * #
     u_Drag = lambda z: math.prod([u(z) ** 2, Z_eq(z)])
@@ -395,7 +413,7 @@ def Q_n(lambda_n, A, B):
     D_Drag_const = integrate.quad(u_Drag, 0, H)
     D_Drag = (
         lambda t: B
-        * (sigma * a * np.cos(sigma * t) / np.sinh(k * H)) ** 2
+        * (sigma * a * np.cos(sigma * t) / ((np.exp(k * H) - np.exp(-k * H)) / 2)) ** 2
         * D_Drag_const[0]
     )
 
@@ -406,22 +424,59 @@ def Q_n(lambda_n, A, B):
 
 # ? Function needs to be created top level in order to not be overwritten
 @cache
-def a_n(w_n, a_const, n, Q_n):
+def a_n(mu_n, a_const, n, Q_n):
     # * Return time dependent part of the sov
     return lambda t, n=n: a_const * (
-        np.sin(w_n * t)
-        * integrate.quad(lambda tau: Q_n(tau) * np.cos(w_n * tau), a=0, b=t)[0]
-        - np.cos(w_n * t)
-        * integrate.quad(lambda tau: Q_n(tau) * np.sin(w_n * tau), a=0, b=t)[0]
+        np.sin(mu_n * t)
+        * integrate.quad(lambda tau: Q_n(tau) * np.cos(mu_n * tau), a=0, b=t)[0]
+        - np.cos(mu_n * t)
+        * integrate.quad(lambda tau: Q_n(tau) * np.sin(mu_n * tau), a=0, b=t)[0]
     )
 
 
+# * Alternative function to compute eigenvalues
+def compute_evs():
+    r = 0.3043077 * 1.1
+    mu = rho_steel * A
+    motes = 10
+    L = l
+    eigenvalues = np.zeros(motes)
+    alfas = np.zeros(motes)
+    for i in range(0, motes):
+        c = np.pi * (i + 0.5)
+
+        # Compute the root in normalized coordinates then scale back.
+        yr = optimize.root_scalar(f, bracket=[c - r, c + r], method="brentq").root
+        xr = yr / L
+        eigenvalues[i] = xr
+        alfas[i] = xr**2 * np.sqrt(E * I / mu)
+    return eigenvalues
+
+
+def b_list(lambda_list: list):
+    b = []
+
+    for lambda_n in lambda_list:
+        Zn = Z_n(lambda_n=lambda_n)
+        Zn_squared = multiplication(Zn, Zn)
+
+        b.append(integrate.quad(Zn_squared, a=0, b=l)[0])
+
+        # ! Error Checker
+        print(f"Zn with imput 10 is {b[-1]}")
+    return b
+
+
 def BEQ(t_end: float = 15, dt: float = 1, l: int = 150, dl: float = 50):
+    # * Constants
+    A = math.pi * (D / 2) ** 2
+    rho_steel = 7850
 
-    lambda_list = find_lambdas(frequency_equation, 100, 0, 0.5)
-
+    # lambda_list = find_lambdas(frequency_equation, 100, 0, 0.1)
+    lambda_list = compute_evs()
     # ! Error Checker
     print("amount of lambdas = ", len(lambda_list))
+    print(f"\n The lambdas are: \n {lambda_list}")
 
     # * initialize heights and time_steps to be used in for loops
     heights = np.arange(0, l + dl, dl)
@@ -430,11 +485,14 @@ def BEQ(t_end: float = 15, dt: float = 1, l: int = 150, dl: float = 50):
     # * Z_n_list of the space dependent parts of the SOV
     # * W_total is used to store the final result
     # * a_n_list stores the values for the time dependent part of th SOV
+    # * b are constant values dependent on lambda
     Z_n_list = []  # list(function)
     W_total = (
         []
     )  # [ [time1,[ [x1,z1], [x2,z2],...  ]],[time2,[ [x1,z1], [x2,z2],...  ]],...  ]
     a_n_list = []  # list(floats)
+
+    b = b_list(lambda_list)
 
     # * Calculate all the values for the space dependent parts and
     # * the correspoinding time dependent functions for each lambda.
@@ -445,18 +503,22 @@ def BEQ(t_end: float = 15, dt: float = 1, l: int = 150, dl: float = 50):
         Z_n_list.append(Z_n(lambda_n=lambda_n))
 
         # * constants:
-        # * w_n dependent on lambda,
+        # * mu_n dependent on lambda,
         # * A, B constants
         # * a_const dependent on lambdas
-        # TODO: w_n and a_const needs to be dependent on lambda
-        w_n = 1  # TODO !!!
-        A = np.pi * rho[0] * C_m * D**2
-        B = 1 / 2 * rho[0] * C_D * D
-        a_const = 1 / (rho[0] * A * 1)  # TODO !!!
+        mu_n = (lambda_n * l) * (EI / (rho_steel * A * (l**4))) ** 4
+        A_a_n = np.pi * rho_steel * C_m * D**2
+        B_a_n = 1 / 2 * rho_steel * C_D * D
+        a_const = 1 / (rho_steel * A * mu_n * b[count])
 
         # * a_n_list constains lambda functions of a_n(t). Input for the functions is t
         a_n_list.append(
-            a_n(a_const=a_const, w_n=w_n, n=count, Q_n=Q_n(lambda_n=lambda_n, A=A, B=B))
+            a_n(
+                a_const=a_const,
+                mu_n=mu_n,
+                n=count,
+                Q_n=Q_n(lambda_n=lambda_n, A=A_a_n, B=B_a_n),
+            )
         )
 
     print(f"\nthe first value for Z_n is \n {(Z_n_list[0])(80)}\n")
@@ -486,11 +548,12 @@ def BEQ(t_end: float = 15, dt: float = 1, l: int = 150, dl: float = 50):
             # * This is constant for all z so its constant for this t_step
             a_lambda = (a_n_list[count])(t_step, count)
 
-            # ! Error checker
-            # print(f"a_lambda is {a_lambda} ")
-
             # * Time dependent part of SOV
             Z_lambda = lambda z: Z_n_list[count](z)
+
+            # ! Error checker a_lambda and z_lambda
+            print(f"a_lambda is {a_lambda} ")
+            print(f"z_lambda(150) is {Z_lambda(150)} ")
 
             # ! Error checker
             # print(f"Z_n in the function for input 10 provides {(zn)(z=10)}")
