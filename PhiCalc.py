@@ -342,14 +342,19 @@ def w(x, t, lambda_list: list, *args):
     return w
 
 
+# * funtion that calculates the beta used in the document for some lambda
+def beta_lambda_n(lambda_n) -> float:
+    return (rho_steel * A * lambda_n**4) / (EI)
+
+
 # * The function to caculate the space dependent part of the SOV
 @cache
 def Z_n(lambda_n: float = 1.0, *args):
     wn = lambda_n * l
 
     C_n = -(
-        np.cos(lambda_n * l) - (np.exp(lambda_n * l) + np.exp(-lambda_n * l) / 2)
-    ) / (np.sin(lambda_n * l) - (np.exp(lambda_n * l) + np.exp(-lambda_n * l)) / 2)
+        np.sin(lambda_n * l) + (np.exp(lambda_n * l) - np.exp(-lambda_n * l) / 2)
+    ) / (np.cos(lambda_n * l) - (np.exp(lambda_n * l) + np.exp(-lambda_n * l)) / 2)
 
     # ! Error Checker
     print(
@@ -387,8 +392,15 @@ def Q_n(lambda_n, A, B):
     D_inertia_const = integrate.quad(u_Inertia, a=0, b=H)
 
     # * The inertia itself is dependent on t. So it is put in a lambda function
-    D_inertia = lambda t: A * (
-        np.sin(sigma * t) / ((np.exp(k * H) - np.exp(-k * H)) / 2) * D_inertia_const[0]
+    D_inertia = (
+        lambda t: -A
+        * sigma**2
+        * a
+        * (
+            np.sin(sigma * t)
+            / ((np.exp(k * H) - np.exp(-k * H)) / 2)
+            * D_inertia_const[0]
+        )
     )
 
     # * ## Drag Calculations ## * #
@@ -417,25 +429,6 @@ def a_n(mu_n, a_const, n, Q_n):
         - np.cos(mu_n * t)
         * integrate.quad(lambda tau: Q_n(tau) * np.sin(mu_n * tau), a=0, b=t)[0]
     )
-
-
-# * Alternative function to compute eigenvalues
-def compute_evs():
-    r = 0.3043077 * 1.1
-    mu = rho_steel * A
-    motes = 10
-    L = l
-    eigenvalues = np.zeros(motes)
-    alfas = np.zeros(motes)
-    for i in range(0, motes):
-        c = np.pi * (i + 0.5)
-
-        # Compute the root in normalized coordinates then scale back.
-        yr = optimize.root_scalar(f, bracket=[c - r, c + r], method="brentq").root
-        xr = yr / L
-        eigenvalues[i] = xr
-        alfas[i] = xr**2 * np.sqrt(E * I / mu)
-    return eigenvalues
 
 
 def b_list(lambda_list: list):
@@ -490,9 +483,9 @@ def BEQ(t_end: float = 2, dt: float = 1, l: int = 150, dl: float = 50):
         # * mu_n dependent on lambda,
         # * A, B constants
         # * a_const dependent on lambdas
-        mu_n = (lambda_n * l) * (EI / (rho_steel * A * (l**4))) ** 4
-        A_a_n = np.pi * rho_steel * C_m * D**2
-        B_a_n = 1 / 2 * rho_steel * C_D * D
+        mu_n = (lambda_n * l) ** 2 * (EI / (rho_steel * A * (l**4))) ** (1 / 2)
+        A_an = np.pi * rho_steel * C_m * D**2
+        B_an = 1 / 2 * rho_steel * C_D * D
         a_const = 1 / (rho_steel * A * mu_n * b[count])
 
         # * a_n_list constains lambda functions of a_n(t). Input for the functions is t
@@ -501,7 +494,7 @@ def BEQ(t_end: float = 2, dt: float = 1, l: int = 150, dl: float = 50):
                 a_const=a_const,
                 mu_n=mu_n,
                 n=count,
-                Q_n=Q_n(lambda_n=lambda_n, A=A_a_n, B=B_a_n),
+                Q_n=Q_n(lambda_n=lambda_n, A=A_an, B=B_an),
             )
         )
 
