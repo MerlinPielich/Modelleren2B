@@ -472,7 +472,15 @@ def b_list(lambda_list: list):
     return b
 
 
-def BEQ(t_end: float = 15, dt: float = 1, l: int = 150, dl: float = 15, A=A) -> list:
+def BEQ(
+    t_end: float = 15,
+    dt: float = 1,
+    l: int = 150,
+    dl: float = 15,
+    A=A,
+    rho_water=rho_water,
+    T=T,
+) -> list:
     # * Constants
     A = np.pi * (D / 2) ** 2
 
@@ -499,7 +507,7 @@ def BEQ(t_end: float = 15, dt: float = 1, l: int = 150, dl: float = 15, A=A) -> 
 
     b = b_list(lambda_list)
 
-    print()
+    print(f"Creating a list for Z_n and a_n")
     # * Calculate all the values for the space dependent parts and
     # * the correspoinding time dependent functions for each lambda.
     for count, lambda_n in enumerate(lambda_list):
@@ -539,7 +547,7 @@ def BEQ(t_end: float = 15, dt: float = 1, l: int = 150, dl: float = 15, A=A) -> 
     for t_step in time_steps:
 
         # ! Error checker
-        print(f"t_step ={t_step}")
+        # print(f"t_step ={t_step}")
 
         # * Initialize lambda function for the deviation
         W = lambda z: 0
