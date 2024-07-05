@@ -456,7 +456,7 @@ def b_list(lambda_list: list):
         Zn = Z_n(lambda_n=lambda_n)
         Zn_squared = multiplication(Zn, Zn)
 
-        b.append(integrate.quad(Zn_squared, a=0, b=l)[0])
+        b.append(integral(Zn_squared, a=0, b=l))
 
         # ! Error Checker
         print(f"Zn with imput 10 is {b[-1]}")
