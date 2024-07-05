@@ -137,6 +137,9 @@ def wave_force_var_dens(z, rho, t):
 # Function that calculates u. This is simply a function that is used in the wave forcing function
 def u(z, t):
     u = sigma * a * np.cosh(kappa * (z + H)) / np.sinh(kappa * H) * np.cos(sigma * t)
+
+    # ! Error checker
+    # print(f"The value for u is {u} \n ")
     return u
 
 
@@ -258,14 +261,6 @@ def simps_rule_lambda_n_t(func, a, b, lambda_n, t, n=100, *args):
     return res
 
 
-# # Z_n: The npace dependent part of the SOV of the beam equation
-# def Z_n(x: float, lambda_n:float = 1.0, C_n: float = 1.0,*args):
-#     term1 = np.cos(lambda_n * x) - np.cosh(lambda_n * x)
-#     term2 = (np.cos(lambda_n * l) - np.cosh(lambda_n * l)) / (np.sin(lambda_n * l) - np.sinh(lambda_n * l))
-#     term3 = np.sin(lambda_n * x) - np.sinh(lambda_n * x)
-#     return C_n * (term1 - term2 * term3)
-
-
 # print(Z_n(1))
 @cache
 def Z_n_sq(x: float, lambda_n: float = 1.0, C_n: float = 1.0, *args):
@@ -279,18 +274,23 @@ def Z_n_sq(x: float, lambda_n: float = 1.0, C_n: float = 1.0, *args):
 
 @cache
 def frequency_equation(x: float, l: float = 150.0) -> float:
-    return np.cosh(x * l) * np.cos(x * l) + 1
+    return (np.exp(x * l) + np.exp(-x * l)) / 2 * np.cos(x * l) + 1
 
 
 @cache
-def find_lambdas(func, n, a, b):
+def find_lambdas(func, n):
+
+    counter = 0
     zeros = []
-    stepsize = (b - a) / n
-    for i in range(n):
-        A = a + stepsize * i
-        B = a + stepsize * (i + 1)
+    stepsize = (0.3043077 * 1.1) / 10000
+    A = 0
+    B = stepsize
+    while counter < n:
+        A += stepsize
+        B += stepsize
         if func(A) * func(B) < 0:
             zeros.append(optimize.bisect(func, A, B))
+            counter += 1
     return zeros
 
 
@@ -329,18 +329,6 @@ def small_q(t_step, lambda_n, *args):
     return q_n
 
 
-# def a_t():
-
-
-#     expression = C*(np.cos(lambda_n*z)*np.sin(lambda_n*l) - np.cos(lambda_n*z)*np.sinh(lambda_n*l)
-#                 - np.cosh(lambda_n*z)*np.sin(lambda_n*l) + np.cosh(lambda_n*z)*np.sinh(lambda_n*l)
-#                 - np.cos(lambda_n*l)*np.sin(lambda_n*z) + np.cos(lambda_n*l)*np.sinh(lambda_n*z)
-#                 + np.cosh(lambda_n*l)*np.sin(lambda_n*z)
-#                 - np.cosh(lambda_n*l)*np.sinh(lambda_n*z))*np.cosh(k(H + z))/(np.sin(lambda_n*l)
-#                 - np.sinh(lambda_n*l))
-
-
-# print(small_q(1, 1))
 # ! not in use anymore
 @cache
 def w(x, t, lambda_list: list, *args):
@@ -359,8 +347,13 @@ def w(x, t, lambda_list: list, *args):
 def Z_n(lambda_n: float = 1.0, *args):
     wn = lambda_n * l
 
-    C_n = -(np.cos(lambda_n * l) - np.cosh(lambda_n * l)) / (
-        np.sin(lambda_n * l) - np.sinh(lambda_n * l)
+    C_n = -(
+        np.cos(lambda_n * l) - (np.exp(lambda_n * l) + np.exp(-lambda_n * l) / 2)
+    ) / (np.sin(lambda_n * l) - (np.exp(lambda_n * l) + np.exp(-lambda_n * l)) / 2)
+
+    # ! Error Checker
+    print(
+        f"The value for lambda_n is \n {lambda_n} \n which provides a value fo C_n of:{C_n}\n"
     )
 
     return (
@@ -384,14 +377,6 @@ def Q_n(lambda_n, A, B):
 
     # * Z_eq is the function for this lambda
     Z_eq = Z_n(lambda_n=lambda_n)
-
-    # (
-    #     lambda z: np.cos(lambda_n * z)
-    #     - np.cosh(lambda_n * z)
-    #     - (np.cos(lambda_n * l) - np.cosh(lambda_n * l))
-    #     * (np.sin(lambda_n * z) - np.sinh(lambda_n * z))
-    #     / (np.sin(lambda_n * l) - np.sinh(lambda_n * l))
-    # )
 
     # * ## Inertia Calculations ## * #
 
@@ -467,13 +452,12 @@ def b_list(lambda_list: list):
     return b
 
 
-def BEQ(t_end: float = 15, dt: float = 1, l: int = 150, dl: float = 50):
+def BEQ(t_end: float = 2, dt: float = 1, l: int = 150, dl: float = 50):
     # * Constants
     A = math.pi * (D / 2) ** 2
     rho_steel = 7850
 
-    # lambda_list = find_lambdas(frequency_equation, 100, 0, 0.1)
-    lambda_list = compute_evs()
+    lambda_list = find_lambdas(frequency_equation, 4)
     # ! Error Checker
     print("amount of lambdas = ", len(lambda_list))
     print(f"\n The lambdas are: \n {lambda_list}")
