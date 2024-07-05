@@ -17,6 +17,7 @@ import scipy
 import scipy as sc
 import scipy.integrate as integrate
 import scipy.optimize as optimize
+from numpy import cos, exp, pi, sin
 from scipy import integrate, optimize
 
 
@@ -40,7 +41,7 @@ sigma = (2 * np.pi) / 5.7
 lamda = 33.8
 
 # I
-I = 0.003067962
+I = 490.7385
 # E
 E = 200 * 10**9
 # EI
@@ -53,7 +54,7 @@ kappa = 2 * np.pi / lamda
 a = 1.5
 
 # Water pressure: 1025 kg/m^2
-rho = 1025
+rho_water = 1025
 
 # Inertia coefficient: 1+C_a ~ 8.66
 C_m = 8.66
@@ -65,7 +66,7 @@ C_D = 1.17
 D = 5
 
 # Cilinder surface intersection
-A = math.pi * (D / 2) ** 2
+A = np.pi * (D / 2) ** 2
 
 # Horizontal bottom: < 50
 H = 50
@@ -84,6 +85,7 @@ l = 150
 
 # density of steel
 rho_steel = 7850
+rho_water = 1000
 
 
 # Function that calculates phi
@@ -117,9 +119,9 @@ def diff_phi(z, x, t):
 # Wave force function/morrison equation. Use this one to calculate wave forcing
 @cache
 def wave_force(z, rho, t):
-    F = (np.pi / 4 * rho * C_m * D**2 * diff_u(z, t)) + 1 / 2 * rho * C_D * D * u(
-        z, t
-    ) * np.abs(u(z, t))
+    F = (np.pi / 4 * rho_water * C_m * D**2 * diff_u(z, t)) + (
+        1 / 2
+    ) * rho_water * C_D * D * u(z, t) * np.abs(u(z, t))
     return F
 
 
@@ -128,7 +130,7 @@ def wave_force(z, rho, t):
 def wave_force_var_dens(z, rho, t):
     F = [[] for i in range(len(rho))]
     for j in range(len(rho)):
-        F[j] = (np.pi / 4 * rho[j] * C_m * D**2 * diff_u(z, t)) + 1 / 2 * rho[
+        F[j] = (np.pi / 4 * rho[j] * C_m * D**2 * diff_u(z, t)) + (1 / 2) * rho[
             j
         ] * C_D * D * u(z, t) * np.abs(u(z, t))
     return F
@@ -159,7 +161,7 @@ def diff_u(z, t):
 force = np.empty((len(t), len(z)))
 for k in range(len(t)):
     for i in range(len(z)):
-        force[k][i] = wave_force(i, rho, k)
+        force[k][i] = wave_force(i, rho_water, k)
 
 end = 1500
 step2 = 1
@@ -369,16 +371,22 @@ def Z_n(lambda_n: float = 1.0, *args):
     )
 
 
-@cache
-def Q_n(lambda_n, A, B):
+def integral(func, a, b):
+    return integrate.quad(func, a=a, b=b)[0]
 
+
+@cache
+def Q_n(lambda_n):
+
+    A = pi / 4 * rho_water * C_m * D**2
+    B = (1 / 2) * rho_water * C_D * D
     # * introduced constants:
     k = kappa
 
-    # * u is the function for the wave forcing. Here initialized as lambda function
-    u = lambda z: (
-        (np.exp(kappa * (z + H)) + np.exp(-kappa * (z + H))) / 2 if z <= 50 else 0
-    )
+    # # * u is the function for the wave forcing. Here initialized as lambda function
+    # u_drag = lambda z: (
+    #     (np.exp(kappa * (z + H)) + np.exp(-kappa * (z + H))) / 2 if z <= 50 else 0
+    # )
 
     # * Z_eq is the function for this lambda
     Z_eq = Z_n(lambda_n=lambda_n)
@@ -386,36 +394,46 @@ def Q_n(lambda_n, A, B):
     # * ## Inertia Calculations ## * #
 
     # * Inertia part for Q
-    u_Inertia = lambda z: math.prod([u(z), Z_eq(z)])
+    u_Inertia = lambda z: (exp(k * (z + H)) + exp(-k * (z + H))) * Z_eq(z)
 
     # * Integrate the u_inertia. It remains constant for t.
-    D_inertia_const = integrate.quad(u_Inertia, a=0, b=H)
+    D_inertia_const = integrate.quad(u_Inertia, a=0, b=H)[0]
+    print(f"The D inertia const is {D_inertia_const}\n")
 
     # * The inertia itself is dependent on t. So it is put in a lambda function
     D_inertia = (
         lambda t: -A
+        * D_inertia_const
         * sigma**2
         * a
-        * (
-            np.sin(sigma * t)
-            / ((np.exp(k * H) - np.exp(-k * H)) / 2)
-            * D_inertia_const[0]
-        )
+        * sin(sigma * t)
+        / ((exp(k * H) - exp(-k * H)) / 2)
     )
 
     # * ## Drag Calculations ## * #
-    u_Drag = lambda z: math.prod([u(z) ** 2, Z_eq(z)])
+    D_Drag_const = integral(
+        lambda z: ((1 / 4) * exp(k * (z + H)) + exp(-k * (z + H)))
+        * abs((exp(k * (z + H)) + exp(-k * (z + H))))
+        * Z_eq(z),
+        a=0,
+        b=H,
+    )
+
+    # ! Error Check
+    print(f"The values for D_Drag_const is {D_Drag_const}\n")
 
     # * Integrate the u_drag. It remains constant for t
-    D_Drag_const = integrate.quad(u_Drag, 0, H)
     D_Drag = (
         lambda t: B
-        * (sigma * a * np.cos(sigma * t) / ((np.exp(k * H) - np.exp(-k * H)) / 2)) ** 2
-        * D_Drag_const[0]
+        * D_Drag_const
+        * ((sigma * a / ((exp(k * H) - exp(-k * H)) / 2)) ** 2)
+        * cos(sigma * t)
+        * abs(cos(sigma * t))
     )
 
     # * Return the sum of both functions
     Q = function_operation(add, D_inertia, D_Drag)
+
     return Q
 
 
@@ -447,7 +465,7 @@ def b_list(lambda_list: list):
 
 def BEQ(t_end: float = 2, dt: float = 1, l: int = 150, dl: float = 50):
     # * Constants
-    A = math.pi * (D / 2) ** 2
+    A = np.pi * (D / 2) ** 2
     rho_steel = 7850
 
     lambda_list = find_lambdas(frequency_equation, 4)
@@ -484,8 +502,8 @@ def BEQ(t_end: float = 2, dt: float = 1, l: int = 150, dl: float = 50):
         # * A, B constants
         # * a_const dependent on lambdas
         mu_n = (lambda_n * l) ** 2 * (EI / (rho_steel * A * (l**4))) ** (1 / 2)
-        A_an = np.pi * rho_steel * C_m * D**2
-        B_an = 1 / 2 * rho_steel * C_D * D
+        # A_an = np.pi * rho_water * C_m * D**2
+        # B_an = (1 / 2) * rho_water * C_D * D
         a_const = 1 / (rho_steel * A * mu_n * b[count])
 
         # * a_n_list constains lambda functions of a_n(t). Input for the functions is t
@@ -494,11 +512,11 @@ def BEQ(t_end: float = 2, dt: float = 1, l: int = 150, dl: float = 50):
                 a_const=a_const,
                 mu_n=mu_n,
                 n=count,
-                Q_n=Q_n(lambda_n=lambda_n, A=A_an, B=B_an),
+                Q_n=Q_n(lambda_n=lambda_n),
             )
         )
 
-    print(f"\nthe first value for Z_n is \n {(Z_n_list[0])(80)}\n")
+    print(f"\nthe first value for Z_n at the top is \n {(Z_n_list[0])(150)}\n")
 
     # ! Error checkers
     # print(f"the first a_n is {print(a_n[0])}")
@@ -526,7 +544,7 @@ def BEQ(t_end: float = 2, dt: float = 1, l: int = 150, dl: float = 50):
             a_lambda = (a_n_list[count])(t_step, count)
 
             # * Time dependent part of SOV
-            Z_lambda = lambda z: Z_n_list[count](z)
+            Z_lambda = Z_n_list[count]
 
             # ! Error checker a_lambda and z_lambda
             print(f"a_lambda is {a_lambda} ")
