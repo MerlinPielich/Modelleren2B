@@ -12,11 +12,15 @@ from itertools import accumulate
 # from sympy.utilities.lambdify import lambdify, implemented_function
 from operator import add
 
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 import scipy as sc
 import scipy.integrate as integrate
 import scipy.optimize as optimize
+from matplotlib import cm
+from matplotlib.ticker import LinearLocator
+from mpl_toolkits.mplot3d import axes3d
 from numpy import cos, cosh, exp, pi, sin, sinh
 from scipy import integrate, optimize
 
@@ -367,9 +371,9 @@ def Z_n(lambda_n: float = 1.0, *args):
     )
 
     # ! Error Checker
-    print(
-        f"The value for lambda_n is \n {lambda_n} \n which provides a value fo C_n of:{C_n}\n"
-    )
+    # print(
+    #     f"The value for lambda_n is \n {lambda_n} \n which provides a value fo C_n of:{C_n}\n"
+    # )
     return res
 
 
@@ -403,7 +407,7 @@ def Q_n(lambda_n, rho_water=rho_water, A=A, T=T):
     C_inert = D_inertia_const * A * rho_water * C_m * sigma**2 * a / sinh(k * H)
 
     # ! Error Checker
-    print(f"The C_inert is {C_inert}\n")
+    # print(f"The C_inert is {C_inert}\n")
 
     # * The inertia itself is dependent on t. So it is put in a lambda function
     D_inertia = lambda t: C_inert * sin(sigma * t)
@@ -419,7 +423,7 @@ def Q_n(lambda_n, rho_water=rho_water, A=A, T=T):
     )
 
     # ! Error Check
-    print(f"The values for D_Drag_const is {D_Drag_const}\n")
+    # print(f"The values for D_Drag_const is {D_Drag_const}\n")
 
     # * Integrate the u_drag. It remains constant for t
     D_Drag = lambda t: C_drag * cos(sigma * t) * abs(cos(sigma * t))
@@ -449,11 +453,11 @@ def a_n(mu_n, a_const, n, Q_n):
     return lambda t, n=n: a_const * (
         np.sin(mu_n * t)
         * integrate.quad(
-            lambda tau: Q_n(tau) * np.cos(mu_n * tau), a=0, b=t, limit=300
+            lambda tau: Q_n(tau) * np.cos(mu_n * tau), a=0, b=t, limit=1000
         )[0]
         - np.cos(mu_n * t)
         * integrate.quad(
-            lambda tau: Q_n(tau) * np.sin(mu_n * tau), a=0, b=t, limit=300
+            lambda tau: Q_n(tau) * np.sin(mu_n * tau), a=0, b=t, limit=1000
         )[0]
     )
 
@@ -468,7 +472,7 @@ def b_list(lambda_list: list):
         b.append(integral(Zn_squared, a=0, b=l))
 
         # ! Error Checker
-        print(f"Zn with imput 10 is {b[-1]}")
+
     return b
 
 
@@ -531,7 +535,7 @@ def BEQ(
                 a_const=a_const,
                 mu_n=mu_n,
                 n=count,
-                Q_n=Q_n(lambda_n=lambda_n),
+                Q_n=Q_n(lambda_n=lambda_n, rho_water=rho_water),
             )
         )
 
@@ -586,17 +590,19 @@ def BEQ(
 
 
 bop = BEQ()
-for time in bop:
-    print(f"at time {time[0]} the beam has deviations{time[1]}")
+# for time in bop:
+#     print(f"at time {time[0]} the beam has deviations{time[1]}")
 
 
-def max_dev():
+# * The maximum deviation
+@cache
+def max_dev(rho_w=rho_water):
     dt = 1 / 10
     t_end = 5
     l = 150
     dl = 10
 
-    U_t = BEQ(t_end=t_end, dt=dt, l=l, dl=dl, rho_water=rho_water, T=T)
+    U_t = BEQ(t_end=t_end, dt=dt, l=l, dl=dl, rho_water=rho_w, T=T)
     bigollist = []
     max_val = 0
 
@@ -610,8 +616,70 @@ def max_dev():
     return max(abs(min_val), abs(max_val))
 
 
-maximoem = max_dev()
-print(f"\n THE MAX Deviations Is: {maximoem} \n")
+dt = 1 / 10
+t_end = 5
+l = 150
+dl = 10
+
+
+def xtu_diagram(t_end=t_end, dt=dt, l=l, dl=dl):
+    pass
+
+
+def Rho_Water(dT, dS, rws):
+    return rws * (2 - dT + dS) / 2
+
+
+# *
+@cache
+def Vary_Rho():
+    dt = 1 / 10
+    t_end = 5
+    l = 150
+    dl = 10
+    rho_water_start = 1030
+    max_list = np.empty((10, 10))
+    dT_list = np.linspace(1, 0.5, 10)
+    dS_list = np.linspace(1, 0.5, 10)
+
+    for dt_count, dT in enumerate(dT_list):
+        temp_list = np.empty(10)
+        for ds_count, dS in enumerate(dS_list):
+            rho_w = Rho_Water(dT=dT, dS=dS, rws=rho_water_start)
+            temp_list[ds_count] = max_dev(rho_w=rho_w)
+        max_list[dt_count] = temp_list
+    return max_list
+
+
+# maximoem = max_dev()
+# print(f"\n THE MAX Deviations Is: {maximoem} \n")
+# varlis = Vary_Rho()
+# print(f"the list of maxes with varied rhos are: {varlis}")
+
+# for xyz in varlis:
+#     X, Y, Z = xyz
+
+plt.style.use("_mpl-gallery")
+
+# Make data.
+X = np.linspace(1, 0.5, 10)
+Y = np.linspace(1, 0.5, 10)
+Z = Vary_Rho()
+
+x, y = np.meshgrid(X, Y)
+
+
+fig = plt.figure(figsize=(10, 8))
+
+ax = fig.add_subplot(111, projection="3d")
+ax.plot_surface(x, y, Z, cmap="cool")
+
+ax.set_xlabel("x")
+ax.set_ylabel("y")
+ax.set_zlabel("z")
+
+# Plot the surface.
+plt.show()
 
 # z = BEQ()
 # filename = "results.csv"
@@ -625,6 +693,6 @@ print(f"\n THE MAX Deviations Is: {maximoem} \n")
 
 # test, answer should be 12
 # print(simps_rule(test_func, 0, 2, 1))
-
+print("wtf")
 
 # print(find_lambdas(frequency_equation, 10, 0, .1))
