@@ -17,7 +17,7 @@ import scipy
 import scipy as sc
 import scipy.integrate as integrate
 import scipy.optimize as optimize
-from numpy import cos, exp, pi, sin
+from numpy import cos, cosh, exp, pi, sin, sinh
 from scipy import integrate, optimize
 
 
@@ -39,11 +39,14 @@ sigma = (2 * np.pi) / 5.7
 
 # Wavelength: 33.8
 lamda = 33.8
+#
+T = 20
 
 # I
 I = 490.7385
+# I = 500
 # E
-E = 200 * 10**9
+E = 210 * 10**9
 # EI
 EI = E * I
 
@@ -55,10 +58,11 @@ a = 1.5
 
 # Water pressure: 1025 kg/m^2
 rho_water = 1025
+rho_steel = 7850
 
 # Inertia coefficient: 1+C_a ~ 8.66
-C_m = 8.66
-
+# C_m = 8.66
+C_m = 1.5
 # Drag coefficient: 1.17
 C_D = 1.17
 
@@ -85,93 +89,94 @@ l = 150
 
 # density of steel
 rho_steel = 7850
-rho_water = 1000
+rho_water = 1030
 
 
 # Function that calculates phi
-@cache
-def calc_phi(z, x, t):
-    phi = (
-        sigma
-        / kappa
-        * a
-        * np.cosh(kappa * (z + H))
-        / np.sinh(kappa * H)
-        * np.sin((kappa * x) + (sigma * t))
-    )
-    return phi
+# @cache
+# def calc_phi(z, x, t):
+#     phi = (
+#         sigma
+#         / kappa
+#         * a
+#         * np.cosh(kappa * (z + H))
+#         / np.sinh(kappa * H)
+#         * np.sin((kappa * x) + (sigma * t))
+#     )
+#     return phi
 
 
-# Function that calculates the differential of phi
-@cache
-def diff_phi(z, x, t):
-    d_phi = (
-        sigma
-        * kappa
-        * a
-        * np.cosh(kappa * (z + H))
-        / np.sinh(kappa * H)
-        * np.cos((kappa * x) + (sigma * t))
-    )
-    return d_phi
+# # Function that calculates the differential of phi
+# @cache
+# def diff_phi(z, x, t):
+#     d_phi = (
+#         sigma
+#         * kappa
+#         * a
+#         * np.cosh(kappa * (z + H))
+#         / np.sinh(kappa * H)
+#         * np.cos((kappa * x) + (sigma * t))
+#     )
+#     return d_phi
 
 
-# Wave force function/morrison equation. Use this one to calculate wave forcing
-@cache
-def wave_force(z, rho, t):
-    F = (np.pi / 4 * rho_water * C_m * D**2 * diff_u(z, t)) + (
-        1 / 2
-    ) * rho_water * C_D * D * u(z, t) * np.abs(u(z, t))
-    return F
+# # Wave force function/morrison equation. Use this one to calculate wave forcing
+# @cache
+# def wave_force(z, rho, t):
+#     F = (np.pi / 4 * rho_water * C_m * D**2 * diff_u(z, t)) + (
+#         1 / 2
+#     ) * rho_water * C_D * D * u(z, t) * np.abs(u(z, t))
+#     return F
 
 
-# wave force function
-@cache
-def wave_force_var_dens(z, rho, t):
-    F = [[] for i in range(len(rho))]
-    for j in range(len(rho)):
-        F[j] = (np.pi / 4 * rho[j] * C_m * D**2 * diff_u(z, t)) + (1 / 2) * rho[
-            j
-        ] * C_D * D * u(z, t) * np.abs(u(z, t))
-    return F
+# # wave force function
+# @cache
+# def wave_force_var_dens(z, rho, t):
+#     F = [[] for i in range(len(rho))]
+#     for j in range(len(rho)):
+#         F[j] = (np.pi / 4 * rho[j] * C_m * D**2 * diff_u(z, t)) + (1 / 2) * rho[
+#             j
+#         ] * C_D * D * u(z, t) * np.abs(u(z, t))
+#     return F
 
 
-# Function that calculates u. This is simply a function that is used in the wave forcing function
-def u(z, t):
-    u = sigma * a * np.cosh(kappa * (z + H)) / np.sinh(kappa * H) * np.cos(sigma * t)
+# ! Niet handig
+# # Function that calculates u. This is simply a function that is used in the wave forcing function
+# def u(z, t):
+#     u = sigma * a * np.cosh(kappa * (z + H)) / np.sinh(kappa * H) * np.cos(sigma * t)
 
-    # ! Error checker
-    # print(f"The value for u is {u} \n ")
-    return u
+#     # ! Error checker
+#     # print(f"The value for u is {u} \n ")
+#     return u
 
 
 # function for the differential of u in z. This is simply a function that is used in the wave forcing function
-def diff_u(z, t):
-    diff_u = (
-        -(sigma**2)
-        * a
-        * np.cosh(kappa * (z + H))
-        / np.sinh(kappa * H)
-        * np.sin(sigma * t)
-    )
-    return diff_u
+# def diff_u(z, t):
+#     diff_u = (
+#         -(sigma**2)
+#         * a
+#         * np.cosh(kappa * (z + H))
+#         / np.sinh(kappa * H)
+#         * np.sin(sigma * t)
+#     )
+#     return diff_u
 
 
-# find force at wave position z at time t.
-force = np.empty((len(t), len(z)))
-for k in range(len(t)):
-    for i in range(len(z)):
-        force[k][i] = wave_force(i, rho_water, k)
+# # find force at wave position z at time t.
+# force = np.empty((len(t), len(z)))
+# for k in range(len(t)):
+#     for i in range(len(z)):
+#         force[k][i] = wave_force(i, rho_water, k)
 
-end = 1500
-step2 = 1
-rho = np.arange(1000, end + 1, step2)
+# end = 1500
+# step2 = 1
+# rho = np.arange(1000, end + 1, step2)
 
-force_var_dens = np.empty((len(t), len(z), len(rho)))
-for k in range(len(t)):
-    for i in range(len(z)):
-        for y in range(len(rho)):
-            force_var_dens[k][i] = wave_force(i, rho[y], k)
+# force_var_dens = np.empty((len(t), len(z), len(rho)))
+# for k in range(len(t)):
+#     for i in range(len(z)):
+#         for y in range(len(rho)):
+#             force_var_dens[k][i] = wave_force(i, rho[y], k)
 
 
 # Function of which the zeros have to be found.
@@ -201,77 +206,77 @@ def find_roots(func, n, a, b):
     return zeros
 
 
-def test_q(x):
-    return np.sin(x)
+# def test_q(x):
+#     return np.sin(x)
 
 
-# lambda's for the beam equation
-# zeros = find_roots(f, 100, 0, 10)
-# print(zeros)
+# # lambda's for the beam equation
+# # zeros = find_roots(f, 100, 0, 10)
+# # print(zeros)
 
 
-def test_func(x):
-    return x**5
+# def test_func(x):
+#     return x**5
 
 
-# Application of simpson's rule to find the integral of a function.
-def simps_rule(func, a, b, n=100):
-    h = (b - a) / n
-    step = a
-    res = 0
-    for i in range(n):
-        step = a + i * h
-        res += np.abs(func(step) + 4 * func((step + step + h) / 2) + func(step + h))
-    res = (h / 6) * res
-    return res
+# # Application of simpson's rule to find the integral of a function.
+# def simps_rule(func, a, b, n=100):
+#     h = (b - a) / n
+#     step = a
+#     res = 0
+#     for i in range(n):
+#         step = a + i * h
+#         res += np.abs(func(step) + 4 * func((step + step + h) / 2) + func(step + h))
+#     res = (h / 6) * res
+#     return res
 
 
-@cache
-def simps_rule_lambda_n(func, a, b, lambda_n, n=100, *args):
-    h = (b - a) / n
-    step = a
-    res = 0
-    for i in range(n):
-        step = a + i * h
-        res += np.abs(
-            func(step, lambda_n, *args)
-            + 4 * func((step + step + h) / 2, lambda_n, *args)
-            + func(step + h, lambda_n, *args)
-        )
-    #        print("res simps_rule_lambda_n = ", res)
-    res = (h / 6) * res
-    return res
+# @cache
+# def simps_rule_lambda_n(func, a, b, lambda_n, n=100, *args):
+#     h = (b - a) / n
+#     step = a
+#     res = 0
+#     for i in range(n):
+#         step = a + i * h
+#         res += np.abs(
+#             func(step, lambda_n, *args)
+#             + 4 * func((step + step + h) / 2, lambda_n, *args)
+#             + func(step + h, lambda_n, *args)
+#         )
+#     #        print("res simps_rule_lambda_n = ", res)
+#     res = (h / 6) * res
+#     return res
 
 
-@cache
-def simps_rule_lambda_n_t(func, a, b, lambda_n, t, n=100, *args):
-    #    print("b = ",b, " a = ", a, " lambda_n = ", lambda_n, " t = ", t, " n = ", n)
-    h = (b - a) / n
-    #    print(h)
-    step = a
-    res = 0
-    for i in range(n):
-        step = a + i * h
-        res += np.abs(
-            func(step, t, lambda_n, *args)
-            + 4 * func((step + step + h) / 2, t, lambda_n, *args)
-            + func(step + h, t, lambda_n, *args)
-        )
-    #        print("res simps_rule_lambda_n_t = ", res)
-    res = (h / 6) * res
-    # print("res = ", res)
-    return res
+# @cache
+# def simps_rule_lambda_n_t(func, a, b, lambda_n, t, n=100, *args):
+#     #    print("b = ",b, " a = ", a, " lambda_n = ", lambda_n, " t = ", t, " n = ", n)
+#     h = (b - a) / n
+#     #    print(h)
+#     step = a
+#     res = 0
+#     for i in range(n):
+#         step = a + i * h
+#         res += np.abs(
+#             func(step, t, lambda_n, *args)
+#             + 4 * func((step + step + h) / 2, t, lambda_n, *args)
+#             + func(step + h, t, lambda_n, *args)
+#         )
+#     #        print("res simps_rule_lambda_n_t = ", res)
+#     res = (h / 6) * res
+#     # print("res = ", res)
+#     return res
 
 
-# print(Z_n(1))
-@cache
-def Z_n_sq(x: float, lambda_n: float = 1.0, C_n: float = 1.0, *args):
-    term1 = np.cos(lambda_n * x) - np.cosh(lambda_n * x)
-    term2 = (np.cos(lambda_n * l) - np.cosh(lambda_n * l)) / (
-        np.sin(lambda_n * l) - np.sinh(lambda_n * l)
-    )
-    term3 = np.sin(lambda_n * x) - np.sinh(lambda_n * x)
-    return (C_n * (term1 - term2 * term3)) ** 2
+# # print(Z_n(1))
+# @cache
+# def Z_n_sq(x: float, lambda_n: float = 1.0, C_n: float = 1.0, *args):
+#     term1 = np.cos(lambda_n * x) - np.cosh(lambda_n * x)
+#     term2 = (np.cos(lambda_n * l) - np.cosh(lambda_n * l)) / (
+#         np.sin(lambda_n * l) - np.sinh(lambda_n * l)
+#     )
+#     term3 = np.sin(lambda_n * x) - np.sinh(lambda_n * x)
+#     return (C_n * (term1 - term2 * term3)) ** 2
 
 
 @cache
@@ -299,49 +304,49 @@ def find_lambdas(func, n):
 ##print(len(find_lambdas(frequency_equation, 1000, 0, 2)))
 
 
-@cache
-def func1(x, t, lambda_n, rho=rho[0], *args):
-    return wave_force(x, rho, t) * Z_n(x, lambda_n)
+# @cache
+# def func1(x, t, lambda_n, rho=rho[0], *args):
+#     return wave_force(x, rho, t) * Z_n(x, lambda_n)
 
 
-@cache
-def Q_n(t: float, lambda_n, *args):
-    return simps_rule_lambda_n_t(func1, 0, l, lambda_n, t)
+# @cache
+# def Q_n(t: float, lambda_n, *args):
+#     return simps_rule_lambda_n_t(func1, 0, l, lambda_n, t)
 
 
-@cache
-def func2(tau, t, lambda_n: float, *args):
-    #    print("func2 left part: Q_n(tau, lambda_n) = ", Q_n(tau, lambda_n))
-    #    print("func2 right part: ", np.sin(lambda_n*(t-tau)))
-    return Q_n(tau, lambda_n) * np.sin(lambda_n * (t - tau))
+# @cache
+# def func2(tau, t, lambda_n: float, *args):
+#     #    print("func2 left part: Q_n(tau, lambda_n) = ", Q_n(tau, lambda_n))
+#     #    print("func2 right part: ", np.sin(lambda_n*(t-tau)))
+#     return Q_n(tau, lambda_n) * np.sin(lambda_n * (t - tau))
 
 
-@cache
-def func_b(Z_n, lambda_n, *args):
-    return simps_rule_lambda_n(Z_n_sq, a=0, b=H, lambda_n=lambda_n)
+# @cache
+# def func_b(Z_n, lambda_n, *args):
+#     return simps_rule_lambda_n(Z_n_sq, a=0, b=H, lambda_n=lambda_n)
 
 
-@cache
-def small_q(t_step, lambda_n, *args):
-    q_n = (
-        1 / (rho_steel * A * func_b(Z_n, lambda_n) * lambda_n)
-    ) * simps_rule_lambda_n_t(func2, a=0, b=t_step, lambda_n=lambda_n, t=t_step)
-    #    print("left part small_q", (1/(rho_steel*A*func_b(Z_n,lambda_n)*lambda_n)))
-    #    print("right part small_q", simps_rule_lambda_n_t(func2, a=0, b=t_step, lambda_n=lambda_n, t=t_step))
-    return q_n
-
+# @cache
+# def small_q(t_step, lambda_n, *args):
+#     q_n = (
+#         1 / (rho_steel * A * func_b(Z_n, lambda_n) * lambda_n)
+#     ) * simps_rule_lambda_n_t(func2, a=0, b=t_step, lambda_n=lambda_n, t=t_step)
+#     #    print("left part small_q", (1/(rho_steel*A*func_b(Z_n,lambda_n)*lambda_n)))
+#     #    print("right part small_q", simps_rule_lambda_n_t(func2, a=0, b=t_step, lambda_n=lambda_n, t=t_step))
+#     return q_n
 
 # ! not in use anymore
-@cache
-def w(x, t, lambda_list: list, *args):
-    w = 0
-    n = len(lambda_list)
-    count = 1
-    for lambda_n in lambda_list:
-        w += Z_n(x=x, lambda_n=lambda_n) * small_q(t_step=t, lambda_n=lambda_n)
-        count += 1
-    #    print("w =", w)
-    return w
+
+# @cache
+# def w(x, t, lambda_list: list, *args):
+#     w = 0
+#     n = len(lambda_list)
+#     count = 1
+#     for lambda_n in lambda_list:
+#         w += Z_n(x=x, lambda_n=lambda_n) * small_q(t_step=t, lambda_n=lambda_n)
+#         count += 1
+#     #    print("w =", w)
+#     return w
 
 
 # * funtion that calculates the beta used in the document for some lambda
@@ -354,32 +359,28 @@ def beta_lambda_n(lambda_n) -> float:
 def Z_n(lambda_n: float = 1.0, *args):
     wn = lambda_n * l
 
-    C_n = -(
-        np.sin(lambda_n * l) + (np.exp(lambda_n * l) - np.exp(-lambda_n * l) / 2)
-    ) / (np.cos(lambda_n * l) - (np.exp(lambda_n * l) + np.exp(-lambda_n * l)) / 2)
+    C_n = (cosh(wn) + cos(wn)) / (sinh(wn) + sin(wn))
+    res = (
+        lambda z: ((1 - C_n) * exp(lambda_n * z) + (1 + C_n) * exp(-lambda_n * z)) / 2.0
+        + C_n * sin(lambda_n * z)
+        - cos(lambda_n * z)
+    )
 
     # ! Error Checker
     print(
         f"The value for lambda_n is \n {lambda_n} \n which provides a value fo C_n of:{C_n}\n"
     )
-
-    return (
-        lambda z: (1 / 2)
-        * ((1 - C_n) * np.exp(lambda_n * z) + (1 + C_n) * np.exp(-lambda_n * z))
-        + C_n * np.sin(lambda_n * z)
-        + np.cos(lambda_n * z)
-    )
+    return res
 
 
 def integral(func, a, b):
-    return integrate.quad(func, a=a, b=b)[0]
+    return integrate.quad(func, a=a, b=b, limit=100)[0]
 
 
 @cache
-def Q_n(lambda_n):
+def Q_n(lambda_n, rho_water=rho_water, A=A, T=T):
 
-    A = pi / 4 * rho_water * C_m * D**2
-    B = (1 / 2) * rho_water * C_D * D
+    # A = (pi / 4) * rho_water * C_m * D**2 * sigma**2 * a
     # * introduced constants:
     k = kappa
 
@@ -394,42 +395,34 @@ def Q_n(lambda_n):
     # * ## Inertia Calculations ## * #
 
     # * Inertia part for Q
-    u_Inertia = lambda z: (exp(k * (z + H)) + exp(-k * (z + H))) * Z_eq(z)
-
     # * Integrate the u_inertia. It remains constant for t.
-    D_inertia_const = integrate.quad(u_Inertia, a=0, b=H)[0]
-    print(f"The D inertia const is {D_inertia_const}\n")
+    D_inertia_const = (
+        integral(lambda z: (exp(k * (z + H)) + exp(-k * (z + H))) / 2 * Z_eq(z), 0, H)
+        / l
+    )
+    C_inert = D_inertia_const * A * rho_water * C_m * sigma**2 * a / sinh(k * H)
+
+    # ! Error Checker
+    print(f"The C_inert is {C_inert}\n")
 
     # * The inertia itself is dependent on t. So it is put in a lambda function
-    D_inertia = (
-        lambda t: -A
-        * D_inertia_const
-        * sigma**2
-        * a
-        * sin(sigma * t)
-        / ((exp(k * H) - exp(-k * H)) / 2)
-    )
+    D_inertia = lambda t: C_inert * sin(sigma * t)
 
     # * ## Drag Calculations ## * #
     D_Drag_const = integral(
-        lambda z: ((1 / 4) * exp(k * (z + H)) + exp(-k * (z + H)))
-        * abs((exp(k * (z + H)) + exp(-k * (z + H))))
-        * Z_eq(z),
+        lambda z: ((1 / 4) * exp(k * (z + H)) + exp(-k * (z + H))) ** 2 * Z_eq(z) / l,
         a=0,
         b=H,
+    )
+    C_drag = (
+        D_Drag_const * (1 / 2) * rho_water * C_D * D * sigma * a / (sinh(k * H)) ** 2
     )
 
     # ! Error Check
     print(f"The values for D_Drag_const is {D_Drag_const}\n")
 
     # * Integrate the u_drag. It remains constant for t
-    D_Drag = (
-        lambda t: B
-        * D_Drag_const
-        * ((sigma * a / ((exp(k * H) - exp(-k * H)) / 2)) ** 2)
-        * cos(sigma * t)
-        * abs(cos(sigma * t))
-    )
+    D_Drag = lambda t: C_drag * cos(sigma * t) * abs(cos(sigma * t))
 
     # * Return the sum of both functions
     Q = function_operation(add, D_inertia, D_Drag)
@@ -437,15 +430,31 @@ def Q_n(lambda_n):
     return Q
 
 
+# def a_n_inef(a_n_const,t):
+
+#     u = lambda z,t: sigma * a * ((exp(k*(z+H)) + exp(-k*(z+H))) / (exp(k*H) - exp(-k*H))) * cos(sigma*t)
+#     u_diff = - sigma**2 * a * ((exp(k*(z+H)) + exp(-k*(z+H))) / (exp(k*H) - exp(-k*H))) * sin(sigma*t)
+#     np.pi / 4 * rho_water * C_m * D**2 * u(z, t) + (1 / 2) * rho_water * C_D * D * u(z, t) * np.abs(u(z, t))
+
+#     return integral(lambda z: )
+
+
 # ? Function needs to be created top level in order to not be overwritten
 @cache
 def a_n(mu_n, a_const, n, Q_n):
     # * Return time dependent part of the sov
+    # ! Error Check
+    # val = integrate.quad(lambda tau: Q_n(tau) * np.sin(mu_n * tau), a=0, b=1, limit=300)
+    # print(f"hey this is the value for this A_N's constant cos part at one second {val}")
     return lambda t, n=n: a_const * (
         np.sin(mu_n * t)
-        * integrate.quad(lambda tau: Q_n(tau) * np.cos(mu_n * tau), a=0, b=t)[0]
+        * integrate.quad(
+            lambda tau: Q_n(tau) * np.cos(mu_n * tau), a=0, b=t, limit=300
+        )[0]
         - np.cos(mu_n * t)
-        * integrate.quad(lambda tau: Q_n(tau) * np.sin(mu_n * tau), a=0, b=t)[0]
+        * integrate.quad(
+            lambda tau: Q_n(tau) * np.sin(mu_n * tau), a=0, b=t, limit=300
+        )[0]
     )
 
 
@@ -463,14 +472,15 @@ def b_list(lambda_list: list):
     return b
 
 
-def BEQ(t_end: float = 2, dt: float = 1, l: int = 150, dl: float = 50):
+def BEQ(t_end: float = 15, dt: float = 1, l: int = 150, dl: float = 15, A=A) -> list:
     # * Constants
     A = np.pi * (D / 2) ** 2
-    rho_steel = 7850
 
-    lambda_list = find_lambdas(frequency_equation, 4)
+    print(f"Creating a list of eigenvalues")
+    lambda_list = find_lambdas(frequency_equation, 5)
+
     # ! Error Checker
-    print("amount of lambdas = ", len(lambda_list))
+    print(f"amount of lambdas is {len(lambda_list)}")
     print(f"\n The lambdas are: \n {lambda_list}")
 
     # * initialize heights and time_steps to be used in for loops
@@ -489,6 +499,7 @@ def BEQ(t_end: float = 2, dt: float = 1, l: int = 150, dl: float = 50):
 
     b = b_list(lambda_list)
 
+    print()
     # * Calculate all the values for the space dependent parts and
     # * the correspoinding time dependent functions for each lambda.
     for count, lambda_n in enumerate(lambda_list):
@@ -501,7 +512,7 @@ def BEQ(t_end: float = 2, dt: float = 1, l: int = 150, dl: float = 50):
         # * mu_n dependent on lambda,
         # * A, B constants
         # * a_const dependent on lambdas
-        mu_n = (lambda_n * l) ** 2 * (EI / (rho_steel * A * (l**4))) ** (1 / 2)
+        mu_n = (lambda_n) ** 2 * (EI / (rho_steel * A)) ** (1 / 2)
         # A_an = np.pi * rho_water * C_m * D**2
         # B_an = (1 / 2) * rho_water * C_D * D
         a_const = 1 / (rho_steel * A * mu_n * b[count])
@@ -547,8 +558,8 @@ def BEQ(t_end: float = 2, dt: float = 1, l: int = 150, dl: float = 50):
             Z_lambda = Z_n_list[count]
 
             # ! Error checker a_lambda and z_lambda
-            print(f"a_lambda is {a_lambda} ")
-            print(f"z_lambda(150) is {Z_lambda(150)} ")
+            # print(f"a_lambda is {a_lambda} ")
+            # print(f"z_lambda(150) is {Z_lambda(150)} ")
 
             # ! Error checker
             # print(f"Z_n in the function for input 10 provides {(zn)(z=10)}")
@@ -567,8 +578,32 @@ def BEQ(t_end: float = 2, dt: float = 1, l: int = 150, dl: float = 50):
 
 
 bop = BEQ()
-print(bop)
+for time in bop:
+    print(f"at time {time[0]} the beam has deviations{time[1]}")
 
+
+def max_dev():
+    dt = 1 / 10
+    t_end = 5
+    l = 150
+    dl = 10
+
+    U_t = BEQ(t_end=t_end, dt=dt, l=l, dl=dl, rho_water=rho_water, T=T)
+    bigollist = []
+    max_val = 0
+
+    for bop in U_t:
+        bigollist += bop[1]
+
+    bigollist.sort()
+
+    max_val = np.max(bigollist)
+    min_val = np.min(bigollist)
+    return max(abs(min_val), abs(max_val))
+
+
+maximoem = max_dev()
+print(f"\n THE MAX Deviations Is: {maximoem} \n")
 
 # z = BEQ()
 # filename = "results.csv"
