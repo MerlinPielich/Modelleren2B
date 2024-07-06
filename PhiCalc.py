@@ -38,31 +38,70 @@ def multiplication(f, g):
     return lambda z: math.prod([func(z) for func in [f, g]])
 
 
-# (Radian) frequency: ?
-sigma = (2 * np.pi) / 5.7
+# Wavenumber: 2pi/wavelength lambda
+
 
 # Wavelength: 33.8
-lamda = 33.8
+wave_length = 33.8
+
+sea_model = {
+    "mild": (5.7, 1.5, 33.8),
+    "medium": (8.6, 4.1, 76.5),
+    "rough": (11.4, 8.5, 136),
+}
+
+wave_period, wave_amplitude, wave_length = sea_model["mild"]
+
+# (Radian) frequency: ?
+sigma = (2 * np.pi) / wave_period
+
 #
 T = 20
 
 # I
-I = 490.7385
+# I = 490.7385
+R_Outer_Shell = 5 / 2
+R_Inner_Shell = 3 / 2
+D_Shell = 0.15
+I_Iron = pi / 4 * (R_Outer_Shell**4 - (R_Outer_Shell - D_Shell) ** 4) + pi / 4 * (
+    (R_Inner_Shell + D_Shell) ** 4 - (R_Inner_Shell) ** 4
+)
+I_Concrete = pi / 4 * ((R_Outer_Shell - D_Shell) ** 4 - (R_Inner_Shell + D_Shell) ** 4)
+
+I = I_Iron + I_Concrete
 # I = 500
 # E
-E = 210 * 10**9
+# E = 210 * 10**9
 # EI
-EI = E * I
+# EI = E * I
+EI = (I_Iron) * 210 * 10**9 + I_Concrete * 20 * 10**9
 
-# Wavenumber: 2pi/wavelength lambda
-kappa = 2 * np.pi / lamda
+# To calculate the density
+A_Steel = pi * (R_Outer_Shell**2 - (R_Outer_Shell - D_Shell) ** 2) + pi * (
+    (R_Inner_Shell + D_Shell) ** 2 - (R_Inner_Shell) ** 2
+)
+A_Concrete = pi * ((R_Outer_Shell - D_Shell) ** 2 - (R_Inner_Shell + D_Shell) ** 2)
+A_Air = pi * (R_Inner_Shell) ** 2
+A_Total = pi * (R_Outer_Shell) ** 2
 
-# Wave amplitude: during storm maximal wave height 1.5
-a = 1.5
-
-# Water pressure: 1025 kg/m^2
-rho_water = 1025
 rho_steel = 7850
+rho_concrete = 2300
+rho_air = 1.225
+
+rho_material = (
+    A_Steel * rho_steel + A_Concrete * rho_concrete + A_Air * rho_air
+) / A_Total
+
+
+# Cilinder surface intersection
+A = pi * (R_Outer_Shell) ** 2 - pi * (R_Inner_Shell) ** 2
+
+
+kappa = 2 * np.pi / wave_length
+
+
+# Water Density: 1025 kg/m^3
+rho_water = 1025
 
 # Inertia coefficient: 1+C_a ~ 8.66
 # C_m = 8.66
@@ -73,26 +112,14 @@ C_D = 1.17
 # Cylinder diameter: ?
 D = 5
 
-# Cilinder surface intersection
-A = np.pi * (D / 2) ** 2
 
 # Horizontal bottom: < 50
 H = 50
 
-# z positions put into a vector z
-step = 0.1
-z = np.arange(-a, a + 0.00001, step)
-# print(z)
-
-# t time steps
-t = np.arange(0, 61, 1)
-# print(t)
-
 # l Length of the windmill 150
 l = 150
 
-# density of steel
-rho_steel = 7850
+# density of steel and water
 rho_water = 1030
 
 
@@ -333,9 +360,9 @@ def find_lambdas(func, n):
 # @cache
 # def small_q(t_step, lambda_n, *args):
 #     q_n = (
-#         1 / (rho_steel * A * func_b(Z_n, lambda_n) * lambda_n)
+#         1 / (rho_material * A * func_b(Z_n, lambda_n) * lambda_n)
 #     ) * simps_rule_lambda_n_t(func2, a=0, b=t_step, lambda_n=lambda_n, t=t_step)
-#     #    print("left part small_q", (1/(rho_steel*A*func_b(Z_n,lambda_n)*lambda_n)))
+#     #    print("left part small_q", (1/(rho_material*A*func_b(Z_n,lambda_n)*lambda_n)))
 #     #    print("right part small_q", simps_rule_lambda_n_t(func2, a=0, b=t_step, lambda_n=lambda_n, t=t_step))
 #     return q_n
 
@@ -355,15 +382,16 @@ def find_lambdas(func, n):
 
 # * funtion that calculates the beta used in the document for some lambda
 def beta_lambda_n(lambda_n) -> float:
-    return (rho_steel * A * lambda_n**4) / (EI)
+    return (rho_material * A * lambda_n**4) / (EI)
 
 
 # * The function to caculate the space dependent part of the SOV
 @cache
 def Z_n(lambda_n: float = 1.0, *args):
     wn = lambda_n * l
-
-    C_n = (cosh(wn) + cos(wn)) / (sinh(wn) + sin(wn))
+    shinh_wn = sinh(wn)
+    cosh_wn = cosh(wn)
+    C_n = (cosh_wn + cos(wn)) / (shinh_wn + sin(wn))
     res = (
         lambda z: ((1 - C_n) * exp(lambda_n * z) + (1 + C_n) * exp(-lambda_n * z)) / 2.0
         + C_n * sin(lambda_n * z)
@@ -400,11 +428,12 @@ def Q_n(lambda_n, rho_water=rho_water, A=A, T=T):
 
     # * Inertia part for Q
     # * Integrate the u_inertia. It remains constant for t.
-    D_inertia_const = (
-        integral(lambda z: (exp(k * (z + H)) + exp(-k * (z + H))) / 2 * Z_eq(z), 0, H)
-        / l
+    D_inertia_const = integral(
+        lambda z: (exp(k * (z)) + exp(-k * (z))) / 2 * Z_eq(z), 0, H
     )
-    C_inert = D_inertia_const * A * rho_water * C_m * sigma**2 * a / sinh(k * H)
+    C_inert = (
+        -D_inertia_const * A * rho_water * C_m * sigma**2 * wave_amplitude / sinh(k * H)
+    )
 
     # ! Error Checker
     # print(f"The C_inert is {C_inert}\n")
@@ -414,12 +443,19 @@ def Q_n(lambda_n, rho_water=rho_water, A=A, T=T):
 
     # * ## Drag Calculations ## * #
     D_Drag_const = integral(
-        lambda z: ((1 / 4) * exp(k * (z + H)) + exp(-k * (z + H))) ** 2 * Z_eq(z) / l,
+        lambda z: ((1 / 4) * exp(k * (z)) + exp(-k * (z))) ** 2 * Z_eq(z),
         a=0,
         b=H,
     )
     C_drag = (
-        D_Drag_const * (1 / 2) * rho_water * C_D * D * sigma * a / (sinh(k * H)) ** 2
+        D_Drag_const
+        * (1 / 2)
+        * rho_water
+        * C_D
+        * D
+        * sigma
+        * wave_amplitude
+        / (sinh(k * H)) ** 2
     )
 
     # ! Error Check
@@ -453,11 +489,11 @@ def a_n(mu_n, a_const, n, Q_n):
     return lambda t, n=n: a_const * (
         np.sin(mu_n * t)
         * integrate.quad(
-            lambda tau: Q_n(tau) * np.cos(mu_n * tau), a=0, b=t, limit=1000
+            lambda tau: Q_n(tau) * np.cos(mu_n * tau), a=0, b=t, limit=300
         )[0]
         - np.cos(mu_n * t)
         * integrate.quad(
-            lambda tau: Q_n(tau) * np.sin(mu_n * tau), a=0, b=t, limit=1000
+            lambda tau: Q_n(tau) * np.sin(mu_n * tau), a=0, b=t, limit=300
         )[0]
     )
 
@@ -477,7 +513,7 @@ def b_list(lambda_list: list):
 
 
 def BEQ(
-    t_end: float = 15,
+    t_end: float = 5,
     dt: float = 1,
     l: int = 150,
     dl: float = 15,
@@ -486,14 +522,15 @@ def BEQ(
     T=T,
 ) -> list:
     # * Constants
-    A = np.pi * (D / 2) ** 2
+    # A = np.pi * (D / 2) ** 2
 
-    print(f"Creating a list of eigenvalues")
+    # # ! Error Checker
+    # print(f"Creating a list of eigenvalues")
     lambda_list = find_lambdas(frequency_equation, 5)
 
     # ! Error Checker
-    print(f"amount of lambdas is {len(lambda_list)}")
-    print(f"\n The lambdas are: \n {lambda_list}")
+    # print(f"amount of lambdas is {len(lambda_list)}")
+    # print(f"\n The lambdas are: \n {lambda_list}")
 
     # * initialize heights and time_steps to be used in for loops
     heights = np.arange(0, l + dl, dl)
@@ -511,7 +548,8 @@ def BEQ(
 
     b = b_list(lambda_list)
 
-    print(f"Creating a list for Z_n and a_n")
+    # # ! Error Checker
+    # print(f"Creating a list for Z_n and a_n")
     # * Calculate all the values for the space dependent parts and
     # * the correspoinding time dependent functions for each lambda.
     for count, lambda_n in enumerate(lambda_list):
@@ -524,10 +562,10 @@ def BEQ(
         # * mu_n dependent on lambda,
         # * A, B constants
         # * a_const dependent on lambdas
-        mu_n = (lambda_n) ** 2 * (EI / (rho_steel * A)) ** (1 / 2)
+        mu_n = (lambda_n) ** 2 * np.sqrt(EI / (rho_material * A))
         # A_an = np.pi * rho_water * C_m * D**2
         # B_an = (1 / 2) * rho_water * C_D * D
-        a_const = 1 / (rho_steel * A * mu_n * b[count])
+        a_const = 1 / (rho_material * A * mu_n * b[count])
 
         # * a_n_list constains lambda functions of a_n(t). Input for the functions is t
         a_n_list.append(
@@ -539,11 +577,10 @@ def BEQ(
             )
         )
 
-    print(f"\nthe first value for Z_n at the top is \n {(Z_n_list[0])(150)}\n")
-
     # ! Error checkers
+    # print(f"\nthe first value for Z_n at the top is \n {(Z_n_list[0])(150)}\n")
     # print(f"the first a_n is {print(a_n[0])}")
-    print(f"\nthe list of lambda's is \n {lambda_list}\n")
+    # print(f"\nthe list of lambda's is \n {lambda_list}\n")
 
     # * structure of output for the function BEQ
     # [ [time1,[ [x1,z1], [x2,z2],...  ]],[time2,[ [x1,z1], [x2,z2],...  ]],...  ]
@@ -590,15 +627,14 @@ def BEQ(
 
 
 bop = BEQ()
-# for time in bop:
-#     print(f"at time {time[0]} the beam has deviations{time[1]}")
+for time in bop:
+    print(f"at time {time[0]} the beam has deviations{time[1]}")
 
 
 # * The maximum deviation
 @cache
-def max_dev(rho_w=rho_water):
-    dt = 1 / 10
-    t_end = 5
+def max_dev(rho_w=rho_water, t_end=10):
+    dt = 1
     l = 150
     dl = 10
 
@@ -611,8 +647,8 @@ def max_dev(rho_w=rho_water):
 
     bigollist.sort()
 
-    max_val = np.max(bigollist)
-    min_val = np.min(bigollist)
+    max_val = (bigollist)[-1]
+    min_val = (bigollist)[0]
     return max(abs(min_val), abs(max_val))
 
 
@@ -623,11 +659,16 @@ dl = 10
 
 
 def xtu_diagram(t_end=t_end, dt=dt, l=l, dl=dl):
-    pass
+    times = np.arange()
 
 
 def Rho_Water(dT, dS, rws):
     return rws * (2 - dT + dS) / 2
+
+
+def rho_umax_diagram():
+    dT_list = np.linspace(0, 0.05, 10)
+    dS_list = np.linspace(0, 0.05, 10)
 
 
 # *
@@ -639,8 +680,8 @@ def Vary_Rho():
     dl = 10
     rho_water_start = 1030
     max_list = np.empty((10, 10))
-    dT_list = np.linspace(1, 0.5, 10)
-    dS_list = np.linspace(1, 0.5, 10)
+    dT_list = np.linspace(0, 0.05, 10)
+    dS_list = np.linspace(0, 0.05, 10)
 
     for dt_count, dT in enumerate(dT_list):
         temp_list = np.empty(10)
@@ -651,36 +692,40 @@ def Vary_Rho():
     return max_list
 
 
-# maximoem = max_dev()
+# maximoem = max_dev(t_end=15)
 # print(f"\n THE MAX Deviations Is: {maximoem} \n")
+
+
 # varlis = Vary_Rho()
 # print(f"the list of maxes with varied rhos are: {varlis}")
 
+
 # for xyz in varlis:
 #     X, Y, Z = xyz
+def DT_DS_UMAX_Diagram():
+    plt.style.use("_mpl-gallery")
 
-plt.style.use("_mpl-gallery")
+    # Make data.
+    X = np.linspace(0, 0.05, 10)
+    Y = np.linspace(0, 0.05, 10)
+    Z = Vary_Rho()
 
-# Make data.
-X = np.linspace(1, 0.5, 10)
-Y = np.linspace(1, 0.5, 10)
-Z = Vary_Rho()
+    x, y = np.meshgrid(X, Y)
 
-x, y = np.meshgrid(X, Y)
+    fig = plt.figure(figsize=(10, 8))
+
+    ax = fig.add_subplot(111, projection="3d")
+    ax.plot_surface(x, y, Z, cmap="cool")
+
+    ax.set_xlabel("DT")
+    ax.set_ylabel("DS")
+    ax.set_zlabel("u_max")
+
+    # Plot the surface.
+    plt.show()
 
 
-fig = plt.figure(figsize=(10, 8))
-
-ax = fig.add_subplot(111, projection="3d")
-ax.plot_surface(x, y, Z, cmap="cool")
-
-ax.set_xlabel("x")
-ax.set_ylabel("y")
-ax.set_zlabel("z")
-
-# Plot the surface.
-plt.show()
-
+DT_DS_UMAX_Diagram()
 # z = BEQ()
 # filename = "results.csv"
 # with open(filename, 'w') as csvfile:
@@ -696,3 +741,110 @@ plt.show()
 print("wtf")
 
 # print(find_lambdas(frequency_equation, 10, 0, .1))
+
+
+@cache
+def rho_water_calc(T):
+    a = -2.8054253 * 10**-10
+    b = 1.0556302 * 10**-7
+    c = -4.6170461 * 10**-5
+    d = -0.0079870401
+    e = 16.945176
+    f = 999.83952
+    g = 0.01687985
+    # R   ange of validity : [-30 ; 150] c
+    rho_water = (((((a * T + b) * T + c) * T + d) * T + e) * T + f) / (1 + g * T)
+    return rho_water
+
+
+@cache
+def Rho_Umax(salinity):
+    X = np.linspace(0, 40, 40)
+    Y = np.zeros(len(X))
+    for count, temp in enumerate(X):
+
+        # ! Error Checker
+        # bro = rho_water_calc(temp)
+        # print(f"the value for rho_water is now {bro}")
+
+        Y[count] = max_dev(rho_w=(rho_water_calc(temp) + salinity))
+
+    # print(f"The Y array looks like: \n {Y}")
+    return X, Y
+
+
+@cache
+def Operation_Salt():
+    # Make data.
+
+    fig, ax = plt.subplots(figsize=(6, 6))
+
+    salts = np.linspace(0, 100, 5)
+    for salt in salts:
+        X, Y = Rho_Umax(salt)
+        ax.plot(X, Y, label=f"Extra salinity of {salt}")
+    ax.set_xlabel("Temperature in C")
+    ax.set_ylabel("Max deviation in m")
+    ax.legend(
+        bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
+        loc="lower left",
+        ncols=2,
+        mode="expand",
+        borderaxespad=0.0,
+    )
+    plt.show()
+
+
+# Operation_Salt()
+
+
+def get_height(beq, count, time):
+    loc = [
+        (index1, index2)
+        for index1, value1 in enumerate(beq)
+        for index2, value2 in enumerate(value1)
+        if value2 == time
+    ]
+    return beq[loc[0[0]]][1][count]
+
+
+def colormap():
+
+    plt.style.use("_mpl-gallery")
+
+    # Make data.
+    T = np.linspace(0, t_end, t_end / dt)
+    X = np.linspace(0, l + dl, int((l) / dl))
+    X_counter = np.linspace(0, len(X), 1)
+    x, y = np.meshgrid(X, T)
+    U = np.zeros(len(T))
+
+    vals = np.array(BEQ())
+
+    U = get_height(vals, X_counter, T)
+
+    print(U)
+
+    # fig = plt.figure(figsize=(10, 8))
+
+    # ax = fig.add_subplot(111, projection="3d")
+    # ax.plot_surface(x, y, Z, cmap="cool")
+
+    # ax.set_xlabel("DT")
+    # ax.set_ylabel("DS")
+    # ax.set_zlabel("u_max")
+    # print(vals)
+
+    # fig, ax = plt.subplots()
+    # im = ax.imshow(data2d)
+    # ax.set_title(
+    #     "Pan on the colorbar to shift the color mapping\n"
+    #     "Zoom on the colorbar to scale the color mapping"
+    # )
+
+    # fig.colorbar(im, ax=ax, label="Interactive colorbar")
+
+    # plt.show()
+
+
+# colormap()
