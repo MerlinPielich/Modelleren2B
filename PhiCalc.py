@@ -4,6 +4,7 @@ Created on Fri May 24 13:52:55 2024
 
 @author: Maris en Merli :P
 """
+
 import csv
 import decimal
 import math
@@ -14,6 +15,8 @@ from operator import add
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import scienceplots
 import scipy
 import scipy as sc
 import scipy.integrate as integrate
@@ -23,6 +26,7 @@ from matplotlib.ticker import LinearLocator
 from mpl_toolkits.mplot3d import axes3d
 from numpy import cos, cosh, exp, pi, sin, sinh
 from scipy import integrate, optimize
+from scipy.interpolate import griddata
 
 
 # Helpt dit?
@@ -40,7 +44,6 @@ def multiplication(f, g):
 
 # Wavenumber: 2pi/wavelength lambda
 
-
 # Wavelength: 33.8
 wave_length = 33.8
 
@@ -55,7 +58,7 @@ wave_period, wave_amplitude, wave_length = sea_model["mild"]
 # (Radian) frequency: ?
 sigma = (2 * np.pi) / wave_period
 
-#
+# Temperature?
 T = 20
 
 # I
@@ -317,7 +320,6 @@ def frequency_equation(x: float, l: float = 150.0) -> float:
 
 @cache
 def find_lambdas(func, n):
-
     counter = 0
     zeros = []
     stepsize = (0.3043077 * 1.1) / 10000
@@ -411,7 +413,6 @@ def integral(func, a, b):
 
 @cache
 def Q_n(lambda_n, rho_water=rho_water, A=A, T=T):
-
     # A = (pi / 4) * rho_water * C_m * D**2 * sigma**2 * a
     # * introduced constants:
     k = kappa
@@ -520,10 +521,10 @@ def BEQ(
     A=A,
     rho_water=rho_water,
     T=T,
+    flatten=True,
 ) -> list:
     # * Constants
     # A = np.pi * (D / 2) ** 2
-
     # # ! Error Checker
     # print(f"Creating a list of eigenvalues")
     lambda_list = find_lambdas(frequency_equation, 5)
@@ -535,6 +536,7 @@ def BEQ(
     # * initialize heights and time_steps to be used in for loops
     heights = np.arange(0, l + dl, dl)
     time_steps = np.arange(0, t_end + dt, dt)
+    W_non_flattened = np.empty((len(time_steps), len(heights)))
 
     # * Z_n_list of the space dependent parts of the SOV
     # * W_total is used to store the final result
@@ -553,7 +555,6 @@ def BEQ(
     # * Calculate all the values for the space dependent parts and
     # * the correspoinding time dependent functions for each lambda.
     for count, lambda_n in enumerate(lambda_list):
-
         # * Z_n_list contains the funciton Z_n as lambda functions
         # ? Parameters: z
         Z_n_list.append(Z_n(lambda_n=lambda_n))
@@ -585,8 +586,7 @@ def BEQ(
     # * structure of output for the function BEQ
     # [ [time1,[ [x1,z1], [x2,z2],...  ]],[time2,[ [x1,z1], [x2,z2],...  ]],...  ]
 
-    for t_step in time_steps:
-
+    for t_count, t_step in enumerate(time_steps):
         # ! Error checker
         # print(f"t_step ={t_step}")
 
@@ -619,16 +619,136 @@ def BEQ(
             W = function_operation(add, W_lambda, W)
 
         # ! Error checker
-        # print(f"W at the top of the beam is is {W(H)}")
+        if flatten:
+            # print(f"W at the top of the beam is is {W(H)}")
+            for h in heights:
+                W_total.append([t_step, h, W(h)])
+        else:
+            for h_count, h in enumerate(heights):
+                W_non_flattened[t_count, h_count] = W(h)
 
-        W_total.append([t_step, [W(h) for h in heights]])
+    if flatten:
+        return W_total
+    else:
+        return time_steps, heights, W_non_flattened
 
-    return W_total
+
+# -------------------BEGIN-CHANGES------------------------
+# Define font sizes
+SIZE_DEFAULT = 14
+SIZE_LARGE = 16
+plt.rc("font", size=SIZE_DEFAULT)  # controls default text sizes
+plt.rc("axes", titlesize=SIZE_LARGE)  # fontsize of the axes title
+plt.rc("axes", labelsize=SIZE_LARGE)  # fontsize of the x and y labels
+plt.rc("xtick", labelsize=SIZE_DEFAULT)  # fontsize of the tick labels
+plt.rc("ytick", labelsize=SIZE_DEFAULT)  # fontsize of the tick labels
+plt.rcParams["figure.figsize"] = [12, 6]
+plt.rcParams["figure.autolayout"] = True
+# --------------------END CHANGES------------------------
 
 
-bop = BEQ()
-for time in bop:
-    print(f"at time {time[0]} the beam has deviations{time[1]}")
+def get_xyz(W):
+    x, y, z = np.empty(len(W)), np.empty(len(W)), np.empty(len(W))
+    for count, xyz in enumerate(W):
+        x[count], y[count], z[count] = xyz[0], xyz[1], xyz[2]
+    return x, y, z
+
+
+@cache
+def surf():
+    plt.style.use(["science"])
+    data = BEQ(t_end=30, dt=0.25, l=150, dl=10)
+    x, y, z = get_xyz(data)
+    fig = plt.figure(figsize=(10, 8))
+    ax = plt.axes(projection="3d")
+    pad = 10
+    ax.set_xlabel("Time in $s$", labelpad=pad)
+    ax.set_ylabel("Height in $m$", labelpad=pad)
+    ax.set_zlabel("Deviation in $m$", labelpad=pad)
+    ax.set_box_aspect(aspect=None, zoom=0.8)
+    surf1 = ax.plot_trisurf(x, y, z, cmap="viridis", antialiased=False)
+
+    # -------------------BEGIN-CHANGES------------------------
+    plt.savefig("trisurf_s_h_Dev.png", dpi=300)
+    # --------------------END CHANGES------------------------
+
+    plt.show()
+
+
+# surf()
+
+
+def get_xyz_plt():
+
+    time, height, deviaton = BEQ(flatten=False)
+    for t_count, t in enumerate(W):
+        time[t_count] = t[0]
+        # , y[count], z[count] = xyz[0], xyz[1], xyz[2]
+    return x, y, z
+
+
+@cache
+def tricolormap():
+    plt.style.use(["science"])
+    time, height, z = BEQ(t_end=60, dt=0.1, l=150, dl=0.25, flatten=False)
+
+    levels = np.linspace(z.min(), z.max(), 10)
+
+    # plot:
+    fig, ax = plt.subplots(figsize=(10, 8))
+
+    ax.set_title(
+        "Colormap of the deviation of the beam \n at different heights and times",
+    )
+    ax.set_xlabel("Time in $s$")
+    ax.set_ylabel("Height in $m$")
+
+    # fig.colorbar(fig, ax=ax, label="Interactive colorbar")
+
+    # ax.plot(x, y, alpha=0)
+    X, Y = np.meshgrid(time, height)
+    Z = z
+    ax.contourf(X, Y, Z, levels=levels)
+    # ax.tripcolor([x, y], z)
+
+    # -------------------BEGIN-CHANGES------------------------
+    plt.savefig("tricolorheightmap.png", dpi=300)
+    # --------------------END CHANGES------------------------
+
+    plt.show()
+
+
+tricolormap()
+
+
+def top_of_beam_tu_diagram():
+
+    plt.style.use(["science"])
+    # make data
+    time, height, z = BEQ(
+        t_end=40, dt=0.1, l=150, dl=150, flatten=False, rho_water=1023
+    )
+
+    # plot
+    fig, ax = plt.subplots(zorder=2, figsize=(16, 9))
+    plt.grid(linestyle="--", alpha=0.5, zorder=1)
+
+    ax.set_xlabel("Time in $s$")
+    ax.set_ylabel("Deviation in $m$")
+    ax.plot(time, z[:, -1], linewidth=1)
+    ax.set_xlim(0, max(time))
+
+    # -------------------BEGIN-CHANGES------------------------
+    plt.savefig("top_of_beam_tu_diagram.png", dpi=300)
+    # --------------------END CHANGES------------------------
+
+    plt.show()
+
+
+# bop = BEQ()
+# for time in bop:
+#     print(f"at time {time[0]} the beam has deviations{time[1]}")
+# top_of_beam_tu_diagram()
 
 
 # * The maximum deviation
@@ -643,7 +763,7 @@ def max_dev(rho_w=rho_water, t_end=10):
     max_val = 0
 
     for bop in U_t:
-        bigollist += bop[1]
+        bigollist.append(bop[2])
 
     bigollist.sort()
 
@@ -662,16 +782,41 @@ def xtu_diagram(t_end=t_end, dt=dt, l=l, dl=dl):
     times = np.arange()
 
 
-def Rho_Water(dT, dS, rws):
+def Rho_Water_1(dT, dS, rws):
     return rws * (2 - dT + dS) / 2
 
 
-def rho_umax_diagram():
-    dT_list = np.linspace(0, 0.05, 10)
-    dS_list = np.linspace(0, 0.05, 10)
+def DT_UMAX_diagram():
+    dT_list = np.linspace(0, 0.5, 10)
+    dS_list = np.linspace(0, 0.18, 6)
+
+    rws = 1030
+    fig, ax = plt.subplots(figsize=(6, 6))
+
+    for ds in dS_list:
+        U = []
+
+        rho_list = Rho_Water_1(dT=dT_list, dS=ds, rws=rws)
+
+        for rho in rho_list:
+            U.append(max_dev(rho_w=rho, t_end=t_end))
+
+        ax.plot(dT_list, U, label=f"A DS of {ds}")
+        ax.set_xlabel("dT")
+        ax.set_ylabel("Max deviation in m")
+        ax.legend(
+            bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
+            loc="lower left",
+            ncols=2,
+            mode="expand",
+            borderaxespad=0.0,
+        )
+    plt.show()
 
 
-# *
+# DT_UMAX_diagram()
+
+
 @cache
 def Vary_Rho():
     dt = 1 / 10
@@ -686,7 +831,7 @@ def Vary_Rho():
     for dt_count, dT in enumerate(dT_list):
         temp_list = np.empty(10)
         for ds_count, dS in enumerate(dS_list):
-            rho_w = Rho_Water(dT=dT, dS=dS, rws=rho_water_start)
+            rho_w = Rho_Water_1(dT=dT, dS=dS, rws=rho_water_start)
             temp_list[ds_count] = max_dev(rho_w=rho_w)
         max_list[dt_count] = temp_list
     return max_list
@@ -700,47 +845,36 @@ def Vary_Rho():
 # print(f"the list of maxes with varied rhos are: {varlis}")
 
 
+def DT_UMAX_Diagram():
+    pass
+
+
 # for xyz in varlis:
 #     X, Y, Z = xyz
-def DT_DS_UMAX_Diagram():
-    plt.style.use("_mpl-gallery")
+# def DT_DS_UMAX_Diagram():
+#     plt.style.use("_mpl-gallery")
 
-    # Make data.
-    X = np.linspace(0, 0.05, 10)
-    Y = np.linspace(0, 0.05, 10)
-    Z = Vary_Rho()
+#     # Make data.
+#     X = np.linspace(0, 0.05, 10)
+#     Y = np.linspace(0, 0.05, 10)
+#     Z = Vary_Rho()
 
-    x, y = np.meshgrid(X, Y)
+#     x, y = np.meshgrid(X, Y)
 
-    fig = plt.figure(figsize=(10, 8))
+#     fig = plt.figure(figsize=(10, 8))
 
-    ax = fig.add_subplot(111, projection="3d")
-    ax.plot_surface(x, y, Z, cmap="cool")
+#     ax = fig.add_subplot(111, projection="3d")
+#     ax.plot_surface(x, y, Z, cmap="cool")
 
-    ax.set_xlabel("DT")
-    ax.set_ylabel("DS")
-    ax.set_zlabel("u_max")
+#     ax.set_xlabel("DT")
+#     ax.set_ylabel("DS")
+#     ax.set_zlabel("u_max")
 
-    # Plot the surface.
-    plt.show()
-
-
-DT_DS_UMAX_Diagram()
-# z = BEQ()
-# filename = "results.csv"
-# with open(filename, 'w') as csvfile:
-#     # creating a csv dict writer object
-#     writer = csv.DictWriter(csvfile)
-
-#     # writing data rows
-#     writer.writerows(z)
+#     # Plot the surface.
+#     plt.show()
 
 
-# test, answer should be 12
-# print(simps_rule(test_func, 0, 2, 1))
-print("wtf")
-
-# print(find_lambdas(frequency_equation, 10, 0, .1))
+# DT_DS_UMAX_Diagram()
 
 
 @cache
@@ -757,12 +891,48 @@ def rho_water_calc(T):
     return rho_water
 
 
+def DT_DS_UMAX_Diagram():
+    plt.style.use("_mpl-gallery")
+
+    # Make data.
+    N_T = 20
+    N_S = 5
+    T = np.linspace(0, 40, N_T)
+    S = np.linspace(0, 100, N_S)
+    x, y = np.meshgrid(T, S)
+
+    Z = np.empty((N_S, N_T))
+
+    for S_count, S_now in enumerate(S):
+        temp_list = np.empty(N_T)
+        for T_count, T_now in enumerate(T):
+            rho_w = rho_water_calc(T_now) + S_now
+            temp_list[T_count] = max_dev(rho_w=rho_w)
+        Z[S_count] = temp_list
+
+    print("wow!")
+
+    fig = plt.figure(figsize=(10, 8))
+
+    ax = fig.add_subplot(111, projection="3d")
+    ax.plot_surface(x, y, Z, cmap="cool")
+
+    ax.set_xlabel("Temperature in C")
+    ax.set_ylabel("Extra salinity in g/m^3")
+    ax.set_zlabel("u_max")
+
+    # Plot the surface.
+    plt.show()
+
+
+DT_DS_UMAX_Diagram()
+
+
 @cache
 def Rho_Umax(salinity):
     X = np.linspace(0, 40, 40)
     Y = np.zeros(len(X))
     for count, temp in enumerate(X):
-
         # ! Error Checker
         # bro = rho_water_calc(temp)
         # print(f"the value for rho_water is now {bro}")
@@ -798,53 +968,53 @@ def Operation_Salt():
 # Operation_Salt()
 
 
-def get_height(beq, count, time):
-    loc = [
-        (index1, index2)
-        for index1, value1 in enumerate(beq)
-        for index2, value2 in enumerate(value1)
-        if value2 == time
-    ]
-    return beq[loc[0[0]]][1][count]
+# def get_height(beq, count, time):
+#     loc = [
+#         (index1, index2)
+#         for index1, value1 in enumerate(beq)
+#         for index2, value2 in enumerate(value1)
+#         if value2 == time
+#     ]
+#     return beq[loc[0[0]]][1][count]
 
 
-def colormap():
+# def colormap():
 
-    plt.style.use("_mpl-gallery")
+#     plt.style.use("_mpl-gallery")
 
-    # Make data.
-    T = np.linspace(0, t_end, t_end / dt)
-    X = np.linspace(0, l + dl, int((l) / dl))
-    X_counter = np.linspace(0, len(X), 1)
-    x, y = np.meshgrid(X, T)
-    U = np.zeros(len(T))
+#     # Make data.
+#     T = np.linspace(0, t_end, t_end / dt)
+#     X = np.linspace(0, l + dl, int((l) / dl))
+#     X_counter = np.linspace(0, len(X), 1)
+#     x, y = np.meshgrid(X, T)
+#     U = np.zeros(len(T))
 
-    vals = np.array(BEQ())
+#     vals = np.array(BEQ())
 
-    U = get_height(vals, X_counter, T)
+#     U = get_height(vals, X_counter, T)
 
-    print(U)
-
-    # fig = plt.figure(figsize=(10, 8))
-
-    # ax = fig.add_subplot(111, projection="3d")
-    # ax.plot_surface(x, y, Z, cmap="cool")
-
-    # ax.set_xlabel("DT")
-    # ax.set_ylabel("DS")
-    # ax.set_zlabel("u_max")
-    # print(vals)
-
-    # fig, ax = plt.subplots()
-    # im = ax.imshow(data2d)
-    # ax.set_title(
-    #     "Pan on the colorbar to shift the color mapping\n"
-    #     "Zoom on the colorbar to scale the color mapping"
-    # )
-
-    # fig.colorbar(im, ax=ax, label="Interactive colorbar")
-
-    # plt.show()
+#     print(U)
 
 
 # colormap()
+
+
+def get_table():
+    n_salt = 10
+    n_temp = 3
+    table = np.empty((10, 3))
+    salts = np.round(np.linspace(0, 300, n_salt), 3)
+    temperatures = np.linspace(20, 50, n_temp)
+
+    max_dev
+
+    for n_salt, salt in enumerate(salts):
+        for n_temp, temp in enumerate(temperatures):
+            table[n_salt][n_temp] = round(
+                100 * max_dev(rho_w=(rho_water_calc(temp) + salt)), 3
+            )
+
+    print(table)
+
+
+get_table()
