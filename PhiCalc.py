@@ -678,15 +678,6 @@ def surf():
 # surf()
 
 
-def get_xyz_plt():
-
-    time, height, deviaton = BEQ(flatten=False)
-    for t_count, t in enumerate(W):
-        time[t_count] = t[0]
-        # , y[count], z[count] = xyz[0], xyz[1], xyz[2]
-    return x, y, z
-
-
 @cache
 def tricolormap():
     plt.style.use(["science"])
@@ -792,13 +783,15 @@ def Rho_Water_1(dT, dS, rws):
 
 
 def DT_UMAX_diagram():
+    plt.style.use(["science"])
     dT_list = np.linspace(0, 0.5, 10)
-    dS_list = np.linspace(0, 0.18, 6)
+    N_ds = 5
+    dS_list = np.linspace(0, 0.2, N_ds)
 
     rws = 1030
-    fig, ax = plt.subplots(figsize=(6, 6))
-
-    for ds in dS_list:
+    fig, ax = plt.subplots(figsize=(8, 4))
+    color = plt.colormaps.get_cmap("viridis").resampled(N_ds).colors
+    for ds_count, ds in enumerate(dS_list):
         U = []
 
         rho_list = Rho_Water_1(dT=dT_list, dS=ds, rws=rws)
@@ -806,16 +799,14 @@ def DT_UMAX_diagram():
         for rho in rho_list:
             U.append(max_dev(rho_w=rho, t_end=t_end))
 
-        ax.plot(dT_list, U, label=f"A DS of {ds}")
-        ax.set_xlabel("dT")
-        ax.set_ylabel("Max deviation in m")
-        ax.legend(
-            bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
-            loc="lower left",
-            ncols=2,
-            mode="expand",
-            borderaxespad=0.0,
-        )
+        ax.plot(dT_list, U, label=f"$\Delta S$ of {round(ds,5)}", color=color[ds_count])
+        ax.set_xlabel("$\Delta T$")
+        ax.set_ylabel("Max deviation in $m$")
+        ax.legend(bbox_to_anchor=[1, 0.5], loc=6, borderaxespad=0, labelspacing=2)
+
+    # -------------------BEGIN-CHANGES------------------------
+    plt.savefig("DT_UMAX_diagram.png", dpi=300)
+    # --------------------END CHANGES------------------------
     plt.show()
 
 
@@ -915,7 +906,7 @@ def DT_DS_UMAX_Diagram():
             temp_list[T_count] = max_dev(rho_w=rho_w)
         Z[S_count] = temp_list
 
-    print("wow!")
+    # print("wow!")
 
     fig = plt.figure(figsize=(10, 8))
 
@@ -954,16 +945,19 @@ def Rho_Umax(salinity):
 
 
 @cache
-def Operation_Salt():
+def T_UMAX_at_different_salinity():
     # Make data.
     plt.style.use(["science"])
 
-    fig, ax = plt.subplots(figsize=(16, 9))
+    fig, ax = plt.subplots(figsize=(8, 4))
 
-    salts = np.linspace(0, 100, 5)
-    for salt in salts:
+    N_Salt = 5
+    color = plt.colormaps.get_cmap("viridis").resampled(N_Salt).colors
+
+    salts = np.linspace(0, 100, N_Salt)
+    for Count, salt in enumerate(salts):
         X, Y = Rho_Umax(salt)
-        ax.plot(X, Y)
+        ax.plot(X, Y, color=color[Count])
         # , label=f"Extra salinity of {salt}"
         ax.annotate(
             xy=(X[-1], Y[-1]),
@@ -972,7 +966,7 @@ def Operation_Salt():
             text=f"Salinity of {int(salt)}",
             va="center",
         )
-    ax.set_xlim(0, 45)
+    ax.set_xlim(0, 40)
 
     ax.set_xlabel("Temperature in $C$")
     ax.set_ylabel("Max deviation in $m$")
@@ -991,7 +985,7 @@ def Operation_Salt():
     plt.show()
 
 
-Operation_Salt()
+T_UMAX_at_different_salinity()
 
 
 # def get_height(beq, count, time):
