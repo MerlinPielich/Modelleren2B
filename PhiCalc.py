@@ -23,6 +23,7 @@ import scipy.integrate as integrate
 import scipy.optimize as optimize
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator
+from mpl_toolkits.axes_grid1 import AxesGrid
 from mpl_toolkits.mplot3d import axes3d
 from numpy import cos, cosh, exp, pi, sin, sinh
 from scipy import integrate, optimize
@@ -1051,14 +1052,23 @@ def window_tricolormap():
     N_salts, N_temps = 3, 3
     Salts = np.linspace(0, 300, N_salts)
     Temps = np.linspace(20, 50, N_temps)
+    saltemp = np.meshgrid(Temps, Salts)
+
     fig, axs = plt.subplots(
-        N_salts, N_temps, figsize=(10, 10), sharex=True, sharey=True
+        nrows=N_salts,
+        ncols=N_temps,
+        figsize=(9, 6),
+        sharex=True,
+        sharey=True,
+        # subplot_kw={"xticks": [], "yticks": []},
+        constrained_layout=True,
     )
+    norm = plt.Normalize(vmin=-0.1, vmax=0.1, clip=True)
 
     for C_salt in range(N_salts):
         for C_temp in range(N_temps):
-            axs[C_salt, C_temp]
-            res_factor = 80
+            # axs[C_salt, C_temp]
+            res_factor = 50
             rho_wet = rho_water_calc(T=Temps[C_temp]) + Salts[C_salt]
             time, height, z = BEQ(
                 t_start=12,
@@ -1072,21 +1082,31 @@ def window_tricolormap():
 
             # plot:
             ax = axs[C_salt, C_temp]
+
             ax.set_title(
                 f"T = {Temps[C_temp]}°C, \n Salinity  = {Salts[C_salt]} $g/m^3$",
             )
             ax.set_xlabel(r"Time in $s$")
             ax.set_ylabel(r"Height in $m$")
-
-            X, Y = np.meshgrid(time, height)
+            # np.transpose(z)
             Z = z
+            extent = np.min(time), np.max(time), np.min(height), np.max(height)
 
-            im = ax.pcolormesh(X, Y, Z)
+            im = ax.imshow(
+                Z,
+                cmap=plt.cm.viridis,
+                interpolation="bilinear",
+                extent=extent,
+                aspect="auto",
+                norm=norm,
+                origin="lower",
+            )
 
-    # cax, kw = plt.colorbar.make_axes([ax for ax in axs.flat])
-    # plt.colorbar(im, cax=cax, **kw)
-    # fig.colorbar(im, ax=axs.ravel().tolist())
-    # fig.colorbar(im, cax=cbar_ax, label="Deflection of the beam in $m$")
+    fig.subplots_adjust(
+        bottom=0.1, top=0.9, left=0.1, right=0.8, wspace=0.02, hspace=0.02
+    )
+
+    cbar = fig.colorbar(im, ax=axs[:, 2], shrink=0.8)
 
     # -------------------BEGIN-CHANGES------------------------
     plt.savefig("window_colormap", dpi=300)
