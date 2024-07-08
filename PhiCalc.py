@@ -625,7 +625,7 @@ def BEQ(
                 W_total.append([t_step, h, W(h)])
         else:
             for h_count, h in enumerate(heights):
-                W_non_flattened[t_count, h_count] = W(h)
+                W_non_flattened[h_count, t_count] = W(h)
 
     if flatten:
         return W_total
@@ -690,7 +690,7 @@ def get_xyz_plt():
 @cache
 def tricolormap():
     plt.style.use(["science"])
-    time, height, z = BEQ(t_end=60, dt=0.1, l=150, dl=0.25, flatten=False)
+    time, height, z = BEQ(t_end=30, dt=0.1, l=150, dl=0.5, flatten=False)
 
     levels = np.linspace(z.min(), z.max(), 10)
 
@@ -700,15 +700,20 @@ def tricolormap():
     ax.set_title(
         "Colormap of the deviation of the beam \n at different heights and times",
     )
-    ax.set_xlabel("Time in $s$")
-    ax.set_ylabel("Height in $m$")
+    ax.set_xlabel(r"Time in $s$")
+    ax.set_ylabel(r"Height in $m$")
 
     # fig.colorbar(fig, ax=ax, label="Interactive colorbar")
 
     # ax.plot(x, y, alpha=0)
     X, Y = np.meshgrid(time, height)
     Z = z
-    ax.contourf(X, Y, Z, levels=levels)
+    # ax.contourf(X, Y, Z, levels=levels)
+    pos = ax.pcolormesh(X, Y, Z)
+    # pos = ax.imshow(Z, cmap="Blues", interpolation="none")
+    fig.colorbar(
+        pos, ax=ax, label="Deviation of the beam in $m$", orientation="horizontal"
+    )
     # ax.tripcolor([x, y], z)
 
     # -------------------BEGIN-CHANGES------------------------
@@ -718,7 +723,7 @@ def tricolormap():
     plt.show()
 
 
-tricolormap()
+# tricolormap()
 
 
 def top_of_beam_tu_diagram():
@@ -892,11 +897,11 @@ def rho_water_calc(T):
 
 
 def DT_DS_UMAX_Diagram():
-    plt.style.use("_mpl-gallery")
+    plt.style.use(["science"])
 
     # Make data.
     N_T = 20
-    N_S = 5
+    N_S = 10
     T = np.linspace(0, 40, N_T)
     S = np.linspace(0, 100, N_S)
     x, y = np.meshgrid(T, S)
@@ -915,11 +920,16 @@ def DT_DS_UMAX_Diagram():
     fig = plt.figure(figsize=(10, 8))
 
     ax = fig.add_subplot(111, projection="3d")
-    ax.plot_surface(x, y, Z, cmap="cool")
+    ax.set_box_aspect(aspect=None, zoom=0.8)
+    ax.plot_surface(x, y, Z, cmap="viridis")
 
-    ax.set_xlabel("Temperature in C")
-    ax.set_ylabel("Extra salinity in g/m^3")
-    ax.set_zlabel("u_max")
+    ax.set_xlabel(r"Temperature in $C$", labelpad=15)
+    ax.set_ylabel(r"Extra salinity in $\frac{g}{m^3}$", labelpad=15)
+    ax.set_zlabel(r"Maximal deviation in $m$", labelpad=15)
+
+    # -------------------BEGIN-CHANGES------------------------
+    plt.savefig("DT_DS_UMAX.png", dpi=300)
+    # --------------------END CHANGES------------------------
 
     # Plot the surface.
     plt.show()
@@ -955,6 +965,7 @@ def Operation_Salt():
         ax.plot(X, Y, label=f"Extra salinity of {salt}")
     ax.set_xlabel("Temperature in C")
     ax.set_ylabel("Max deviation in m")
+    # ax.set_zlabel()
     ax.legend(
         bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
         loc="lower left",
@@ -1017,4 +1028,4 @@ def get_table():
     print(table)
 
 
-get_table()
+# get_table()
