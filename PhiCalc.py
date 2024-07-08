@@ -935,7 +935,7 @@ def DT_DS_UMAX_Diagram():
     plt.show()
 
 
-DT_DS_UMAX_Diagram()
+# DT_DS_UMAX_Diagram()
 
 
 @cache
@@ -956,27 +956,42 @@ def Rho_Umax(salinity):
 @cache
 def Operation_Salt():
     # Make data.
+    plt.style.use(["science"])
 
-    fig, ax = plt.subplots(figsize=(6, 6))
+    fig, ax = plt.subplots(figsize=(16, 9))
 
     salts = np.linspace(0, 100, 5)
     for salt in salts:
         X, Y = Rho_Umax(salt)
-        ax.plot(X, Y, label=f"Extra salinity of {salt}")
-    ax.set_xlabel("Temperature in C")
-    ax.set_ylabel("Max deviation in m")
+        ax.plot(X, Y)
+        # , label=f"Extra salinity of {salt}"
+        ax.annotate(
+            xy=(X[-1], Y[-1]),
+            xytext=(5, 0),
+            textcoords="offset points",
+            text=f"Salinity of {int(salt)}",
+            va="center",
+        )
+    ax.set_xlim(0, 45)
+
+    ax.set_xlabel("Temperature in $C$")
+    ax.set_ylabel("Max deviation in $m$")
     # ax.set_zlabel()
-    ax.legend(
-        bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
-        loc="lower left",
-        ncols=2,
-        mode="expand",
-        borderaxespad=0.0,
-    )
+    # ax.legend(
+    #     bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
+    #     loc="lower left",
+    #     ncols=2,
+    #     mode="expand",
+    #     borderaxespad=0.0,
+
+    # )
+    # -------------------BEGIN-CHANGES------------------------
+    plt.savefig("T_UMAX_at_different_salinity", dpi=300)
+    # --------------------END CHANGES------------------------
     plt.show()
 
 
-# Operation_Salt()
+Operation_Salt()
 
 
 # def get_height(beq, count, time):
