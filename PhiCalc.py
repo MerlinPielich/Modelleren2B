@@ -515,9 +515,10 @@ def b_list(lambda_list: list):
 
 def BEQ(
     t_end: float = 5,
-    dt: float = 1,
+    t_start: float = 0,
     l: int = 150,
-    dl: float = 15,
+    t_n: int = 50,
+    l_n: int = 50,
     A=A,
     rho_water=rho_water,
     T=T,
@@ -534,9 +535,9 @@ def BEQ(
     # print(f"\n The lambdas are: \n {lambda_list}")
 
     # * initialize heights and time_steps to be used in for loops
-    heights = np.arange(0, l + dl, dl)
-    time_steps = np.arange(0, t_end + dt, dt)
-    W_non_flattened = np.empty((len(time_steps), len(heights)))
+    heights = np.linspace(0, l + l / l_n, l_n)
+    time_steps = np.linspace(t_start, t_end + t_end / t_n, t_n)
+    W_non_flattened = np.empty((t_n, l_n))
 
     # * Z_n_list of the space dependent parts of the SOV
     # * W_total is used to store the final result
@@ -819,7 +820,7 @@ def Ext_1_Surf():
     plt.show()
 
 
-Ext_1_Surf()
+# Ext_1_Surf()
 
 
 def DT_UMAX_diagram():
@@ -1015,3 +1016,82 @@ def get_table():
 
 
 # get_table()
+
+
+@cache
+def rep_tricolormap():
+    plt.style.use(["science"])
+    time, height, z = BEQ(t_end=30, dt=0.1, l=150, dl=0.5, flatten=False)
+    levels = np.linspace(z.min(), z.max(), 10)
+    # plot:
+    fig, ax = plt.subplots(figsize=(10, 8))
+    ax.set_title(
+        "Colormap of the deflection of the beam \n at different heights and times",
+    )
+    ax.set_xlabel(r"Time in $s$")
+    ax.set_ylabel(r"Height in $m$")
+
+    # fig.colorbar(fig, ax=ax, label="Interactive colorbar")
+
+    # ax.plot(x, y, alpha=0)
+    X, Y = np.meshgrid(time, height)
+    Z = z
+    # ax.contourf(X, Y, Z, levels=levels)
+    pos = ax.pcolormesh(X, Y, Z)
+    # pos = ax.imshow(Z, cmap="Blues", interpolation="none")
+    # fig.colorbar(
+    #     pos, ax=ax, label="Deflection of the beam in $m$", orientation="horizontal"
+    # )
+    # ax.tripcolor([x, y], z)
+    return ax
+
+
+def window_tricolormap():
+    plt.style.use(["science"])
+    N_salts, N_temps = 3, 3
+    Salts = np.linspace(0, 300, N_salts)
+    Temps = np.linspace(20, 50, N_temps)
+    fig, axs = plt.subplots(
+        N_salts, N_temps, figsize=(10, 10), sharex=True, sharey=True
+    )
+
+    for C_salt in range(N_salts):
+        for C_temp in range(N_temps):
+            axs[C_salt, C_temp]
+            res_factor = 80
+            rho_wet = rho_water_calc(T=Temps[C_temp]) + Salts[C_salt]
+            time, height, z = BEQ(
+                t_start=12,
+                t_end=22,
+                t_n=res_factor,
+                l=150,
+                l_n=res_factor,
+                flatten=False,
+                rho_water=rho_wet,
+            )
+
+            # plot:
+            ax = axs[C_salt, C_temp]
+            ax.set_title(
+                f"T = {Temps[C_temp]}°C, \n Salinity  = {Salts[C_salt]} $g/m^3$",
+            )
+            ax.set_xlabel(r"Time in $s$")
+            ax.set_ylabel(r"Height in $m$")
+
+            X, Y = np.meshgrid(time, height)
+            Z = z
+
+            im = ax.pcolormesh(X, Y, Z)
+
+    # cax, kw = plt.colorbar.make_axes([ax for ax in axs.flat])
+    # plt.colorbar(im, cax=cax, **kw)
+    # fig.colorbar(im, ax=axs.ravel().tolist())
+    # fig.colorbar(im, cax=cbar_ax, label="Deflection of the beam in $m$")
+
+    # -------------------BEGIN-CHANGES------------------------
+    plt.savefig("window_colormap", dpi=300)
+    # --------------------END CHANGES------------------------
+    plt.show()
+
+
+window_tricolormap()
