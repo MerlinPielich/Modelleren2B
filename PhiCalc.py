@@ -664,7 +664,7 @@ def surf():
     pad = 10
     ax.set_xlabel("Time in $s$", labelpad=pad)
     ax.set_ylabel("Height in $m$", labelpad=pad)
-    ax.set_zlabel("Deviation in $m$", labelpad=pad)
+    ax.set_zlabel("Deflection in $m$", labelpad=pad)
     ax.set_box_aspect(aspect=None, zoom=0.8)
     surf1 = ax.plot_trisurf(x, y, z, cmap="viridis", antialiased=False)
 
@@ -689,7 +689,7 @@ def tricolormap():
     fig, ax = plt.subplots(figsize=(10, 8))
 
     ax.set_title(
-        "Colormap of the deviation of the beam \n at different heights and times",
+        "Colormap of the deflection of the beam \n at different heights and times",
     )
     ax.set_xlabel(r"Time in $s$")
     ax.set_ylabel(r"Height in $m$")
@@ -703,7 +703,7 @@ def tricolormap():
     pos = ax.pcolormesh(X, Y, Z)
     # pos = ax.imshow(Z, cmap="Blues", interpolation="none")
     fig.colorbar(
-        pos, ax=ax, label="Deviation of the beam in $m$", orientation="horizontal"
+        pos, ax=ax, label="Deflection of the beam in $m$", orientation="horizontal"
     )
     # ax.tripcolor([x, y], z)
 
@@ -730,7 +730,7 @@ def top_of_beam_tu_diagram():
     plt.grid(linestyle="--", alpha=0.5, zorder=1)
 
     ax.set_xlabel("Time in $s$")
-    ax.set_ylabel("Deviation in $m$")
+    ax.set_ylabel("Deflection in $m$")
     ax.plot(time, z[:, -1], linewidth=1)
     ax.set_xlim(0, max(time))
 
@@ -782,6 +782,46 @@ def Rho_Water_1(dT, dS, rws):
     return rws * (2 - dT + dS) / 2
 
 
+def Ext_1_Surf():
+    plt.style.use(["science"])
+
+    # Make data.
+    N_T = 10
+    N_S = 10
+    T = np.linspace(0, 0.2, N_T)
+    S = np.linspace(0, 0.2, N_S)
+    S_mesh, T_mesh = np.meshgrid(T, S)
+    U_max = np.zeros((N_S, N_T))
+    rws = 1030
+    Z = np.empty((N_S, N_T))
+
+    for s_count, s in enumerate(S):
+        for t_count, t in enumerate(T):
+            U_max[s_count, t_count] = max_dev(rho_w=Rho_Water_1(dT=t, dS=s, rws=rws))
+
+    # print("wow!")
+
+    fig = plt.figure(figsize=(10, 8))
+
+    ax = fig.add_subplot(111, projection="3d")
+    ax.set_box_aspect(aspect=None, zoom=0.8)
+    ax.view_init(elev=40, azim=-130)
+    ax.plot_surface(S_mesh, T_mesh, U_max, cmap="viridis")
+    ax.set_xlabel(r"Temperature in $C$", labelpad=15)
+    ax.set_ylabel(r"Extra salinity in $\frac{g}{m^3}$", labelpad=15)
+    ax.set_zlabel(r"Maximal deflection in $m$", labelpad=15)
+
+    # -------------------BEGIN-CHANGES------------------------
+    plt.savefig("Ext_1_DTDSUMAX.png", dpi=300)
+    # --------------------END CHANGES------------------------
+
+    # Plot the surface.
+    plt.show()
+
+
+Ext_1_Surf()
+
+
 def DT_UMAX_diagram():
     plt.style.use(["science"])
     dT_list = np.linspace(0, 0.5, 10)
@@ -801,7 +841,7 @@ def DT_UMAX_diagram():
 
         ax.plot(dT_list, U, label=f"$\Delta S$ of {round(ds,5)}", color=color[ds_count])
         ax.set_xlabel("$\Delta T$")
-        ax.set_ylabel("Max deviation in $m$")
+        ax.set_ylabel("Max deflection in $m$")
         ax.legend(bbox_to_anchor=[1, 0.5], loc=6, borderaxespad=0, labelspacing=2)
 
     # -------------------BEGIN-CHANGES------------------------
@@ -839,38 +879,6 @@ def Vary_Rho():
 
 # varlis = Vary_Rho()
 # print(f"the list of maxes with varied rhos are: {varlis}")
-
-
-def DT_UMAX_Diagram():
-    pass
-
-
-# for xyz in varlis:
-#     X, Y, Z = xyz
-# def DT_DS_UMAX_Diagram():
-#     plt.style.use("_mpl-gallery")
-
-#     # Make data.
-#     X = np.linspace(0, 0.05, 10)
-#     Y = np.linspace(0, 0.05, 10)
-#     Z = Vary_Rho()
-
-#     x, y = np.meshgrid(X, Y)
-
-#     fig = plt.figure(figsize=(10, 8))
-
-#     ax = fig.add_subplot(111, projection="3d")
-#     ax.plot_surface(x, y, Z, cmap="cool")
-
-#     ax.set_xlabel("DT")
-#     ax.set_ylabel("DS")
-#     ax.set_zlabel("u_max")
-
-#     # Plot the surface.
-#     plt.show()
-
-
-# DT_DS_UMAX_Diagram()
 
 
 @cache
@@ -916,7 +924,7 @@ def DT_DS_UMAX_Diagram():
 
     ax.set_xlabel(r"Temperature in $C$", labelpad=15)
     ax.set_ylabel(r"Extra salinity in $\frac{g}{m^3}$", labelpad=15)
-    ax.set_zlabel(r"Maximal deviation in $m$", labelpad=15)
+    ax.set_zlabel(r"Maximal deflection in $m$", labelpad=15)
 
     # -------------------BEGIN-CHANGES------------------------
     plt.savefig("DT_DS_UMAX.png", dpi=300)
@@ -969,7 +977,7 @@ def T_UMAX_at_different_salinity():
     ax.set_xlim(0, 40)
 
     ax.set_xlabel("Temperature in $C$")
-    ax.set_ylabel("Max deviation in $m$")
+    ax.set_ylabel("Max deflection in $m$")
     # ax.set_zlabel()
     # ax.legend(
     #     bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
@@ -985,38 +993,7 @@ def T_UMAX_at_different_salinity():
     plt.show()
 
 
-T_UMAX_at_different_salinity()
-
-
-# def get_height(beq, count, time):
-#     loc = [
-#         (index1, index2)
-#         for index1, value1 in enumerate(beq)
-#         for index2, value2 in enumerate(value1)
-#         if value2 == time
-#     ]
-#     return beq[loc[0[0]]][1][count]
-
-
-# def colormap():
-
-#     plt.style.use("_mpl-gallery")
-
-#     # Make data.
-#     T = np.linspace(0, t_end, t_end / dt)
-#     X = np.linspace(0, l + dl, int((l) / dl))
-#     X_counter = np.linspace(0, len(X), 1)
-#     x, y = np.meshgrid(X, T)
-#     U = np.zeros(len(T))
-
-#     vals = np.array(BEQ())
-
-#     U = get_height(vals, X_counter, T)
-
-#     print(U)
-
-
-# colormap()
+# T_UMAX_at_different_salinity()
 
 
 def get_table():
