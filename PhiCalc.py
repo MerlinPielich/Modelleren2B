@@ -515,14 +515,14 @@ def b_list(lambda_list: list):
 
 
 def BEQ(
-    t_end: float = 5,
+    t_end: float = 30,
     t_start: float = 0,
     l: int = 150,
     t_n: int = 50,
     l_n: int = 50,
     A=A,
     rho_water=rho_water,
-    T=T,
+    T=0,
     flatten=True,
 ) -> list:
     # * Constants
@@ -627,7 +627,7 @@ def BEQ(
                 W_total.append([t_step, h, W(h)])
         else:
             for h_count, h in enumerate(heights):
-                W_non_flattened[h_count, t_count] = W(h)
+                W_non_flattened[t_count, h_count] = W(h)
 
     if flatten:
         return W_total
@@ -659,7 +659,7 @@ def get_xyz(W):
 @cache
 def surf():
     plt.style.use(["science"])
-    data = BEQ(t_end=30, dt=0.25, l=150, dl=10)
+    data = BEQ(t_end=30, t_n=1000, l=150, l_n=1000)
     x, y, z = get_xyz(data)
     fig = plt.figure(figsize=(10, 8))
     ax = plt.axes(projection="3d")
@@ -683,10 +683,10 @@ def surf():
 @cache
 def tricolormap():
     plt.style.use(["science"])
-    time, height, z = BEQ(t_end=30, dt=0.1, l=150, dl=0.5, flatten=False)
+    time, height, z = BEQ(t_end=35, t_n=1000, l=150, l_n=1000, flatten=False)
 
     levels = np.linspace(z.min(), z.max(), 10)
-
+    norm = plt.Normalize(vmin=-0.1, vmax=0.1, clip=True)
     # plot:
     fig, ax = plt.subplots(figsize=(10, 8))
 
@@ -702,10 +702,13 @@ def tricolormap():
     X, Y = np.meshgrid(time, height)
     Z = z
     # ax.contourf(X, Y, Z, levels=levels)
-    pos = ax.pcolormesh(X, Y, Z)
+    pos = ax.pcolormesh(X, Y, Z, norm=norm)
     # pos = ax.imshow(Z, cmap="Blues", interpolation="none")
     fig.colorbar(
-        pos, ax=ax, label="Deflection of the beam in $m$", orientation="horizontal"
+        pos,
+        ax=ax,
+        label="Deflection of the beam in $m$",
+        orientation="horizontal",
     )
     # ax.tripcolor([x, y], z)
 
@@ -724,7 +727,7 @@ def top_of_beam_tu_diagram():
     plt.style.use(["science"])
     # make data
     time, height, z = BEQ(
-        t_end=40, dt=0.1, l=150, dl=150, flatten=False, rho_water=1023
+        t_end=40, t_n=500, l_n=10, l=150, flatten=False, rho_water=1023
     )
 
     # plot
@@ -743,20 +746,20 @@ def top_of_beam_tu_diagram():
     plt.show()
 
 
+# top_of_beam_tu_diagram()
+
 # bop = BEQ()
 # for time in bop:
 #     print(f"at time {time[0]} the beam has deviations{time[1]}")
-# top_of_beam_tu_diagram()
 
 
 # * The maximum deviation
 @cache
 def max_dev(rho_w=rho_water, t_end=10):
-    dt = 1
-    l = 150
-    dl = 10
 
-    U_t = BEQ(t_end=t_end, dt=dt, l=l, dl=dl, rho_water=rho_w, T=T)
+    l = 150
+
+    U_t = BEQ(t_end=30, t_n=30, l=l, l_n=10, rho_water=rho_w)
     bigollist = []
     max_val = 0
 
@@ -769,6 +772,8 @@ def max_dev(rho_w=rho_water, t_end=10):
     min_val = (bigollist)[0]
     return max(abs(min_val), abs(max_val))
 
+
+# print(max_dev(rho_w=1023))
 
 dt = 1 / 10
 t_end = 5
@@ -792,10 +797,9 @@ def Ext_1_Surf():
     N_S = 10
     T = np.linspace(0, 0.2, N_T)
     S = np.linspace(0, 0.2, N_S)
-    S_mesh, T_mesh = np.meshgrid(T, S)
+    S_mesh, T_mesh = np.meshgrid(S, T)
     U_max = np.zeros((N_S, N_T))
     rws = 1030
-    Z = np.empty((N_S, N_T))
 
     for s_count, s in enumerate(S):
         for t_count, t in enumerate(T):
@@ -809,8 +813,8 @@ def Ext_1_Surf():
     ax.set_box_aspect(aspect=None, zoom=0.8)
     ax.view_init(elev=40, azim=-130)
     ax.plot_surface(S_mesh, T_mesh, U_max, cmap="viridis")
-    ax.set_xlabel(r"Temperature in $C$", labelpad=15)
-    ax.set_ylabel(r"Extra salinity in $\frac{g}{m^3}$", labelpad=15)
+    ax.set_xlabel(r"$\Delta S$", labelpad=15)
+    ax.set_ylabel(r"$\Delta T$", labelpad=15)
     ax.set_zlabel(r"Maximal deflection in $m$", labelpad=15)
 
     # -------------------BEGIN-CHANGES------------------------
@@ -1005,14 +1009,15 @@ def get_table():
     salts = np.round(np.linspace(0, 300, n_salt), 3)
     temperatures = np.linspace(20, 50, n_temp)
 
-    max_dev
-
     for n_salt, salt in enumerate(salts):
         for n_temp, temp in enumerate(temperatures):
             table[n_salt][n_temp] = round(
                 100 * max_dev(rho_w=(rho_water_calc(temp) + salt)), 3
             )
 
+    df1 = pd.DataFrame(table)
+
+    df1.to_excel("output.xlsx")
     print(table)
 
 
@@ -1114,4 +1119,4 @@ def window_tricolormap():
     plt.show()
 
 
-window_tricolormap()
+# window_tricolormap()
