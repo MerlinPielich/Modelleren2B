@@ -773,7 +773,7 @@ def max_dev(rho_w=rho_water, t_end=10):
     return max(abs(min_val), abs(max_val))
 
 
-# print(max_dev(rho_w=1023))
+print(max_dev(rho_w=1023))
 
 dt = 1 / 10
 t_end = 5
@@ -830,7 +830,7 @@ def Ext_1_Surf():
 
 def DT_UMAX_diagram():
     plt.style.use(["science"])
-    dT_list = np.linspace(0, 0.5, 10)
+    dT_list = np.linspace(0, 0.2, 10)
     N_ds = 5
     dS_list = np.linspace(0, 0.2, N_ds)
 
@@ -929,8 +929,9 @@ def DT_DS_UMAX_Diagram():
     ax.plot_surface(x, y, Z, cmap="viridis")
 
     ax.set_xlabel(r"Temperature in $C$", labelpad=15)
-    ax.set_ylabel(r"Extra salinity in $\frac{g}{m^3}$", labelpad=15)
+    ax.set_ylabel(r"Added salinity in $\frac{g}{m^3}$", labelpad=15)
     ax.set_zlabel(r"Maximal deflection in $m$", labelpad=15)
+    ax.view_init(elev=40, azim=-130)
 
     # -------------------BEGIN-CHANGES------------------------
     plt.savefig("DT_DS_UMAX.png", dpi=300)
@@ -977,7 +978,7 @@ def T_UMAX_at_different_salinity():
             xy=(X[-1], Y[-1]),
             xytext=(5, 0),
             textcoords="offset points",
-            text=f"Salinity of {int(salt)}",
+            text=f"Added Salinity of {int(salt)}",
             va="center",
         )
     ax.set_xlim(0, 40)
@@ -1003,11 +1004,11 @@ def T_UMAX_at_different_salinity():
 
 
 def get_table():
-    n_salt = 10
+    n_salt = 5
     n_temp = 3
-    table = np.empty((10, 3))
-    salts = np.round(np.linspace(0, 300, n_salt), 3)
-    temperatures = np.linspace(20, 50, n_temp)
+    table = np.empty((n_salt, n_temp))
+    salts = np.round(np.linspace(0, 100, n_salt), 3)
+    temperatures = np.linspace(20, 40, n_temp)
 
     for n_salt, salt in enumerate(salts):
         for n_temp, temp in enumerate(temperatures):
